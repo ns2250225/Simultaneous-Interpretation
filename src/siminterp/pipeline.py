@@ -15,7 +15,7 @@ from .dictionary import preprocess_text
 from .logging_utils import RichLogger
 from .transcription.engines import Transcriber
 from .translation.openai_translator import OpenAITranslator
-from .tts.speech import OpenAITTSEngine
+from .tts.speech import OpenAITTSEngine, TTSEngineProtocol
 
 
 class InterpretationPipeline:
@@ -26,7 +26,7 @@ class InterpretationPipeline:
         transcriber: Transcriber,
         dictionary: Optional[Dict[str, str]] = None,
         translator: Optional[OpenAITranslator] = None,
-        tts_engine: Optional[OpenAITTSEngine] = None,
+        tts_engine: Optional[TTSEngineProtocol] = None,
     ) -> None:
         self.config = config
         self.logger = logger

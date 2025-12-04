@@ -77,6 +77,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Sampling temperature for translation responses.",
     )
     parser.add_argument(
+        "--tts-provider",
+        choices=["openai", "coqui"],
+        default="openai",
+        help="Text-to-speech provider to use (openai or coqui).",
+    )
+    parser.add_argument(
         "--tts-model",
         help=(
             "OpenAI text-to-speech model to use when --tts is enabled. "

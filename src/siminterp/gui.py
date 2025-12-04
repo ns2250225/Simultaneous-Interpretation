@@ -105,9 +105,16 @@ class SimInterpGUI:
         self.device_combo['values'] = ['auto', 'cpu', 'cuda']
         self.device_combo.grid(row=6, column=1, padx=5, pady=5, sticky="ew")
 
+        # TTS Provider
+        tk.Label(self.root, text="TTS 引擎：").grid(row=7, column=0, padx=5, pady=5, sticky="w")
+        self.tts_provider_var = tk.StringVar(value=self.config.tts_provider)
+        self.tts_provider_combo = ttk.Combobox(self.root, textvariable=self.tts_provider_var, state="readonly")
+        self.tts_provider_combo['values'] = ['openai', 'coqui']
+        self.tts_provider_combo.grid(row=7, column=1, padx=5, pady=5, sticky="ew")
+
         # Buttons
         btn_frame = tk.Frame(self.root)
-        btn_frame.grid(row=7, column=0, columnspan=2, pady=10)
+        btn_frame.grid(row=8, column=0, columnspan=2, pady=10)
         
         self.start_btn = tk.Button(btn_frame, text="开始收音", command=self.start_listening, bg="green", fg="white")
         self.start_btn.pack(side=tk.LEFT, padx=5)
@@ -117,7 +124,7 @@ class SimInterpGUI:
 
         # Log Area
         self.log_area = scrolledtext.ScrolledText(self.root, width=80, height=20)
-        self.log_area.grid(row=8, column=0, columnspan=2, padx=5, pady=5)
+        self.log_area.grid(row=9, column=0, columnspan=2, padx=5, pady=5)
 
         self.root.columnconfigure(1, weight=1)
 
@@ -136,6 +143,7 @@ class SimInterpGUI:
         self.config.input_language = self.input_lang_var.get()
         self.config.translation_language = self.target_lang_var.get()
         self.config.whisper_device = self.device_var.get()
+        self.config.tts_provider = self.tts_provider_var.get()
         try:
             self.config.pause_threshold = float(self.pause_threshold_var.get())
             self.config.tts_speed = float(self.tts_speed_var.get())
@@ -152,6 +160,7 @@ class SimInterpGUI:
         self.pause_threshold_entry.config(state=tk.DISABLED)
         self.tts_speed_entry.config(state=tk.DISABLED)
         self.device_combo.config(state=tk.DISABLED)
+        self.tts_provider_combo.config(state=tk.DISABLED)
         
         # Clear log area
         self.log_area.delete('1.0', tk.END)
@@ -221,6 +230,7 @@ class SimInterpGUI:
         self.pause_threshold_entry.config(state=tk.NORMAL)
         self.tts_speed_entry.config(state=tk.NORMAL)
         self.device_combo.config(state="readonly")
+        self.tts_provider_combo.config(state="readonly")
 
 def run_gui(config: AppConfig):
     root = tk.Tk()

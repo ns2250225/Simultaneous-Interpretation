@@ -11,7 +11,7 @@ from .logging_utils import RichLogger
 from .pipeline import InterpretationPipeline
 from .transcription.engines import create_transcriber
 from .translation.openai_translator import OpenAITranslator
-from .tts.speech import OpenAITTSEngine
+from .tts.speech import OpenAITTSEngine, CoquiTTSEngine, TTSEngineProtocol
 
 
 def build_translator(config: AppConfig, client: OpenAI) -> OpenAITranslator | None:
@@ -20,9 +20,15 @@ def build_translator(config: AppConfig, client: OpenAI) -> OpenAITranslator | No
     return OpenAITranslator(client=client, model=config.openai_model, temperature=config.translation_temperature)
 
 
-def build_tts_engine(config: AppConfig, client: OpenAI) -> OpenAITTSEngine | None:
+def build_tts_engine(config: AppConfig, client: OpenAI) -> TTSEngineProtocol | None:
     if not config.enable_tts:
         return None
+    
+    if config.tts_provider == "coqui":
+        # Use user-provided model or default to XTTS v2
+        model_name = config.tts_model if config.tts_model != "tts-1" else "tts_models/multilingual/multi-dataset/xtts_v2"
+        return CoquiTTSEngine(model_name=model_name, speed=config.tts_speed)
+
     return OpenAITTSEngine(client=client, model=config.tts_model, voice=config.tts_voice, speed=config.tts_speed)
 
 

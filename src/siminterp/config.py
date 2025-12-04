@@ -27,6 +27,7 @@ class AppConfig:
     topic: str
     openai_model: str
     tts_voice: str
+    tts_provider: str
     tts_model: str
     transcriber: str
     whisper_model: str
@@ -99,6 +100,7 @@ def build_config(args) -> AppConfig:
         topic=getattr(args, "topic", ""),
         openai_model=openai_model,
         tts_voice=getattr(args, "voice", "alloy"),
+        tts_provider=getattr(args, "tts_provider", "openai"),
         tts_model=tts_model,
         transcriber=getattr(args, "transcriber", "faster-whisper"),
         whisper_model=getattr(args, "whisper_model", "base.en"),
