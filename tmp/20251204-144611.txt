@@ -1,0 +1,10 @@
+Transcript:
+Starting initialization...
+OpenAI client initialized.
+Loading transcriber model... (this may take a while)
+Transcriber loaded.
+Pipeline created. Starting...
+你好啊
+
+Translated:
+Hello there

@@ -106,24 +106,45 @@ class SimInterpGUI:
         return int(combo_value.split(":")[0])
 
     def start_listening(self):
+        # Update config from UI first (Main Thread)
+        input_val = self.input_combo.get()
+        output_val = self.output_combo.get()
+        input_idx = self._get_device_index(input_val) if input_val else None
+        output_idx = self._get_device_index(output_val) if output_val else None
+        
+        self.config.input_device_index = input_idx
+        self.config.output_device_index = output_idx
+        self.config.input_language = self.input_lang_var.get()
+        self.config.translation_language = self.target_lang_var.get()
+
+        # Disable inputs immediately to prevent multiple clicks
+        self.start_btn.config(state=tk.DISABLED)
+        self.input_combo.config(state=tk.DISABLED)
+        self.output_combo.config(state=tk.DISABLED)
+        self.input_lang_combo.config(state=tk.DISABLED)
+        self.target_lang_combo.config(state=tk.DISABLED)
+        
+        # Clear log area
+        self.log_area.delete('1.0', tk.END)
+        self.log_area.insert(tk.END, "Initializing... Please wait.\n")
+
+        threading.Thread(target=self._start_background, daemon=True).start()
+
+    def _start_background(self):
         try:
-            input_val = self.input_combo.get()
-            output_val = self.output_combo.get()
-            
-            input_idx = self._get_device_index(input_val) if input_val else None
-            output_idx = self._get_device_index(output_val) if output_val else None
-            
-            # Update config
-            self.config.input_device_index = input_idx
-            self.config.output_device_index = output_idx
-            self.config.input_language = self.input_lang_var.get()
-            self.config.translation_language = self.target_lang_var.get()
-            
-            # Initialize components
+            # Initialize components (Background Thread)
+            # Note: GuiLogger uses root.after so it's thread-safe
             logger = GuiLogger(self.config.log_file, self.log_area)
+            logger.log_text("Starting initialization...")
             
             client = OpenAI(api_key=self.config.api_key, base_url=self.config.base_url)
+            logger.log_text("OpenAI client initialized.")
+            
+            # Heavy lifting: loading models
+            logger.log_text("Loading transcriber model... (this may take a while)")
             transcriber = create_transcriber(self.config)
+            logger.log_text("Transcriber loaded.")
+
             translator = build_translator(self.config, client)
             tts_engine = build_tts_engine(self.config, client)
             dictionary = load_dictionary(self.config.dictionary_path)
@@ -137,19 +158,23 @@ class SimInterpGUI:
                 tts_engine=tts_engine,
             )
             
-            # Run in separate thread to avoid blocking GUI
-            threading.Thread(target=self.pipeline.start, daemon=True).start()
+            logger.log_text("Pipeline created. Starting...")
             
-            self.start_btn.config(state=tk.DISABLED)
-            self.stop_btn.config(state=tk.NORMAL)
-            self.input_combo.config(state=tk.DISABLED)
-            self.output_combo.config(state=tk.DISABLED)
-            self.input_lang_combo.config(state=tk.DISABLED)
-            self.target_lang_combo.config(state=tk.DISABLED)
+            # Enable stop button (Main Thread update)
+            self.root.after(0, lambda: self.stop_btn.config(state=tk.NORMAL))
+            
+            # Start pipeline (this method blocks until stop is called? No, we changed it to non-blocking start)
+            self.pipeline.start()
             
         except Exception as e:
-            self.log_area.insert(tk.END, f"Error starting: {str(e)}\n")
-            self.log_area.see(tk.END)
+            # Schedule error update on main thread
+            print(f"Background thread error: {e}")  # Print to console for debugging
+            self.root.after(0, lambda: self._handle_start_error(e))
+
+    def _handle_start_error(self, e):
+        self.log_area.insert(tk.END, f"Error starting: {str(e)}\n")
+        self.log_area.see(tk.END)
+        self.stop_listening() # Reset UI state
 
     def stop_listening(self):
         if self.pipeline:

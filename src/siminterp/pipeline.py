@@ -69,6 +69,17 @@ class InterpretationPipeline:
         if self._stop_listening:
             self._stop_listening(wait_for_stop=False)
             self._stop_listening = None
+        
+        # Clear all queues immediately to stop processing pending items
+        with self.transcription_queue.mutex:
+            self.transcription_queue.queue.clear()
+        if self.translation_queue:
+            with self.translation_queue.mutex:
+                self.translation_queue.queue.clear()
+        if self.tts_queue:
+            with self.tts_queue.mutex:
+                self.tts_queue.queue.clear()
+
         self.logger.log_panel("Stopping listening...", "ACTION", "magenta3")
         self._shutdown_workers()
         self.logger.save_transcript()
@@ -100,13 +111,16 @@ class InterpretationPipeline:
             self.threads.append(tts_thread)
 
     def _shutdown_workers(self) -> None:
+        # Send termination signals
         self.transcription_queue.put(None)
         if self.translation_queue is not None:
             self.translation_queue.put(None)
         if self.tts_queue is not None:
             self.tts_queue.put(None)
+        
+        # Wait for threads to finish with a timeout to avoid hanging
         for thread in self.threads:
-            thread.join()
+            thread.join(timeout=1.0)
 
     def _callback(self, recognizer: sr.Recognizer, audio: sr.AudioData) -> None:
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as buffer:
