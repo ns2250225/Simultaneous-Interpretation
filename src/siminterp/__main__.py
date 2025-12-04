@@ -35,6 +35,12 @@ def main() -> None:
         return
 
     config = build_config(args)
+
+    if args.gui:
+        from .gui import run_gui
+        run_gui(config)
+        return
+
     logger = RichLogger(log_file=config.log_file)
 
     dictionary = load_dictionary(config.dictionary_path)

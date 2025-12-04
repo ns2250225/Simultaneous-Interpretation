@@ -1,5 +1,8 @@
 # 基于openai的实时同声传译应用
 
+## 界面预览
+![](./demo.png)
+
 ## 前置要求
 - Python 3.10 或更高版本。
 - PyAudio 需要 [PortAudio](http://www.portaudio.com/) 运行时环境。在 macOS 上，您可以使用 `brew install portaudio` 进行安装。
@@ -30,6 +33,13 @@ python -m src.siminterp --list-devices
 python -m src.siminterp --input-language zh --target-language en --input-device 1 --output-device 3 --translate --tts --voice alloy --transcriber faster-whisper --whisper-model base
 ```
 按 `CTRL+C` 停止。应用程序将优雅地关闭后台工作线程，并将带时间戳的转录文本保存到您的“tmp”文件夹中。
+
+### 启动 GUI 界面
+如果您更喜欢图形化界面，可以使用 `--gui` 参数启动：
+```bash
+python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --whisper-model base
+```
+在 GUI 中，您可以方便地选择输入/输出设备以及源语言和目标语言。
 
 ### 支持的whisper模型（一般选large-v3最好）
 ```

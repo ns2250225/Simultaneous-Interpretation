@@ -24,6 +24,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Only list input and output audio devices, then exit.",
     )
     parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="Launch the graphical user interface.",
+    )
+    parser.add_argument(
         "--input-device",
         type=int,
         help="Index of the microphone to use. Defaults to the system default device.",

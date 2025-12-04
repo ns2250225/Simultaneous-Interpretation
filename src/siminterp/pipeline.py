@@ -45,8 +45,9 @@ class InterpretationPipeline:
         )
         self.previous_chunks: Deque[str] = deque(maxlen=config.chunk_history)
         self.threads: list[threading.Thread] = []
+        self._stop_listening = None
 
-    def run(self) -> None:
+    def start(self) -> None:
         microphone = sr.Microphone(device_index=self.config.input_device_index)
         with microphone as source:
             self.logger.log_panel(
@@ -57,22 +58,31 @@ class InterpretationPipeline:
             self.recognizer.adjust_for_ambient_noise(source, duration=self.config.ambient_duration)
 
         self._start_workers()
-        stop_listening = self.recognizer.listen_in_background(
+        self._stop_listening = self.recognizer.listen_in_background(
             sr.Microphone(device_index=self.config.input_device_index),
             self._callback,
             phrase_time_limit=self.config.phrase_time_limit,
         )
-        self.logger.log_panel("Start speaking. Press CTRL+C to exit", "ACTION", "green1")
+        self.logger.log_panel("Start speaking. Press Stop to exit", "ACTION", "green1")
 
+    def stop(self) -> None:
+        if self._stop_listening:
+            self._stop_listening(wait_for_stop=False)
+            self._stop_listening = None
+        self.logger.log_panel("Stopping listening...", "ACTION", "magenta3")
+        self._shutdown_workers()
+        self.logger.save_transcript()
+
+    def run(self) -> None:
+        self.start()
+        self.logger.log_panel("Start speaking. Press CTRL+C to exit", "ACTION", "green1")
         try:
             while True:
                 time.sleep(0.5)
         except KeyboardInterrupt:
-            self.logger.log_panel("Stopping listening...", "ACTION", "magenta3")
+            pass
         finally:
-            stop_listening(wait_for_stop=False)
-            self._shutdown_workers()
-            self.logger.save_transcript()
+            self.stop()
 
     def _start_workers(self) -> None:
         transcription_thread = threading.Thread(target=self._transcription_worker, daemon=True)
