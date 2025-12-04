@@ -28,35 +28,6 @@ OPENAI_TTS_MODEL=tts-1
 python -m src.siminterp --list-devices
 ```
 
-启动同声传译会话（示例：将中文翻译成英文，播放合成语音，使用 GPU 加速推理）：
-```bash
-python -m src.siminterp --input-language zh --target-language en --input-device 1 --output-device 3 --translate --tts --voice alloy --transcriber faster-whisper --whisper-model large-v3 --whisper-device cuda
-```
-
-### 高级用法
-**使用 Coqui TTS（离线/本地 TTS）：**
-```bash
-python -m src.siminterp --translate --tts --tts-provider coqui --input-language zh --target-language en
-```
-
-**使用 Edge TTS（免费/高质量 TTS）：**
-```bash
-python -m src.siminterp --translate --tts --tts-provider edge-tts --voice en-US-AriaNeural
-```
-你可以通过 `edge-tts --list-voices` 命令查看所有可用的 Edge TTS 语音。
-
-**调整停顿阈值（控制断句灵敏度）：**
-```bash
-python -m src.siminterp --pause-threshold 1.2 ...
-```
-
-**加载自定义术语字典：**
-```bash
-python -m src.siminterp --dictionary dictionary.txt ...
-```
-
-按 `CTRL+C` 停止。应用程序将优雅地关闭后台工作线程，并将带时间戳的转录文本保存到您的“tmp”文件夹中。
-
 ### 启动 GUI 界面
 如果您更喜欢图形化界面，可以使用 `--gui` 参数启动：
 ```bash
