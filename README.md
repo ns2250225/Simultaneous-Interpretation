@@ -58,7 +58,7 @@ python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --w
 ```
 在 GUI 中，您可以方便地选择输入/输出设备、源语言/目标语言、TTS 引擎以及推理设备。
 
-### 支持的whisper模型（一般选large-v3最好）
+### 支持的whisper模型（一般选large-v3最好, 但是最慢最占现存）
 ```
 large-v3
 large-v2
