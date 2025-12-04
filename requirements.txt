@@ -1,7 +1,8 @@
 faster-whisper>=1.0.0
+nvidia-cudnn-cu12; sys_platform == 'win32'
+nvidia-cublas-cu12; sys_platform == 'win32'
 openai>=1.35.0
 pyaudio
 python-dotenv
 rich
 speechrecognition
-whispercpp>=0.1.0

@@ -124,11 +124,12 @@ class InterpretationPipeline:
             thread.join(timeout=1.0)
 
     def _callback(self, recognizer: sr.Recognizer, audio: sr.AudioData) -> None:
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as buffer:
-            buffer.write(audio.get_wav_data())
-            temp_path = Path(buffer.name)
-
+        temp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as buffer:
+                buffer.write(audio.get_wav_data())
+                temp_path = Path(buffer.name)
+
             text = self.transcriber.transcribe_file(temp_path, self.config.input_language)
             text = preprocess_text(text, self.dictionary)
             cleaned = text.strip()
@@ -137,7 +138,8 @@ class InterpretationPipeline:
         except Exception as error:  # pragma: no cover - runtime safety
             self.logger.log_exception(error)
         finally:
-            temp_path.unlink(missing_ok=True)
+            if temp_path:
+                temp_path.unlink(missing_ok=True)
 
     def _transcription_worker(self) -> None:
         while True:

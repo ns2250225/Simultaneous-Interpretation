@@ -14,76 +14,87 @@ class Transcriber(Protocol):
 
 class WhisperCppTranscriber:
     def __init__(self, model: str, threads: Optional[int] = None):
-        try:
-            import whispercpp
-            from whispercpp import Whisper
-        except ImportError as exc:  # pragma: no cover - runtime dependency
-            raise RuntimeError(
-                "whispercpp package not installed. Install it with 'pip install whispercpp'."
-            ) from exc
-
-        model_path = Path(model).expanduser()
-        if model_path.exists():
-            self.model = self._load_local_model(str(model_path), Whisper, whispercpp.utils)
-        elif "/" in model or "\\" in model or model.endswith(".bin"):
-            raise FileNotFoundError(f"Whisper model file not found at: {model_path}")
-        else:
-            self.model = Whisper.from_pretrained(model)
-        self.threads = threads
-
-    @staticmethod
-    def _load_local_model(path_str: str, whisper_class, utils_module):
-        """Bypass strict checks in whispercpp to load a local model file."""
-        fake_model_name = "custom-local-model"
-        
-        # Patch MODELS_URL to accept our fake name
-        original_urls = utils_module.MODELS_URL.copy()
-        utils_module.MODELS_URL[fake_model_name] = "local://dummy"
-        
-        # Patch download_model to return our local path directly
-        original_download = utils_module.download_model
-        
-        def fake_download(model_name, basedir=None):
-            if model_name == fake_model_name:
-                return path_str
-            return original_download(model_name, basedir)
-            
-        utils_module.download_model = fake_download
-        
-        try:
-            return whisper_class.from_pretrained(fake_model_name)
-        finally:
-            # Restore original state
-            utils_module.MODELS_URL = original_urls
-            utils_module.download_model = original_download
+        # NOTE: The 'whispercpp' python bindings are currently difficult to install on Windows
+        # due to compilation requirements. We are disabling this backend for now.
+        # Users should prefer 'faster-whisper'.
+        raise RuntimeError(
+            "The 'whispercpp' backend is currently unavailable on Windows due to installation issues. "
+            "Please use '--transcriber faster-whisper' instead."
+        )
 
     def transcribe_file(self, audio_path: Path, language: str) -> str:
-        kwargs = {}
-        if self.threads:
-            kwargs["threads"] = self.threads
-        if language:
-            kwargs["language"] = language
-
-        result = self.model.transcribe(str(audio_path), **kwargs)
-        return _segments_to_text(result)
+        raise NotImplementedError("whispercpp backend is disabled.")
 
 
 class FasterWhisperTranscriber:
-    def __init__(self, model_size: str, threads: Optional[int] = None):
+    def __init__(self, model_size: str, threads: Optional[int] = None, device: str = "auto"):
         os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+        
+        # Attempt to add NVIDIA library paths for Windows if installed via pip
+        if os.name == "nt":
+            try:
+                import nvidia.cudnn
+                import nvidia.cublas
+                
+                # Safely get paths, handling potential None or missing attributes
+                cudnn_dir = os.path.dirname(nvidia.cudnn.__file__) if hasattr(nvidia.cudnn, '__file__') and nvidia.cudnn.__file__ else None
+                cublas_dir = os.path.dirname(nvidia.cublas.__file__) if hasattr(nvidia.cublas, '__file__') and nvidia.cublas.__file__ else None
+
+                libs = []
+                if cudnn_dir:
+                    libs.append(cudnn_dir)
+                    libs.append(os.path.join(cudnn_dir, "bin"))
+                
+                if cublas_dir:
+                    libs.append(cublas_dir)
+                    libs.append(os.path.join(cublas_dir, "bin"))
+
+                for lib in libs:
+                    if lib and os.path.exists(lib):
+                        os.add_dll_directory(lib)
+            except (ImportError, AttributeError):
+                pass
+
         from faster_whisper import WhisperModel  # type: ignore
+
+        # Determine device and compute type
+        if device == "auto":
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    device = "cuda"
+                else:
+                    device = "cpu"
+            except ImportError:
+                device = "cpu"
+
+        # Fallback for CUDA if no NVIDIA libs found
+        if device == "cuda":
+            try:
+                import torch
+                if not torch.cuda.is_available():
+                    device = "cpu"
+            except ImportError:
+                device = "cpu"
+
+        compute_type = "float16" if device == "cuda" else "int8"
 
         cpu_threads = threads or max(1, (os.cpu_count() or 2) // 2)
         self.model = WhisperModel(
             model_size,
-            device="cpu",
-            compute_type="int8",
+            device=device,
+            compute_type=compute_type,
             cpu_threads=cpu_threads,
             num_workers=cpu_threads,
         )
 
     def transcribe_file(self, audio_path: Path, language: str) -> str:
-        segments, _ = self.model.transcribe(str(audio_path), language=language)
+        segments, _ = self.model.transcribe(
+            str(audio_path), 
+            language=language,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500)
+        )
         return _segments_to_text(segments)
 
 
@@ -108,4 +119,8 @@ def _segments_to_text(result: Iterable) -> str:
 def create_transcriber(config: AppConfig) -> Transcriber:
     if config.transcriber == "whispercpp":
         return WhisperCppTranscriber(config.whisper_model, config.whisper_threads)
-    return FasterWhisperTranscriber(config.whisper_model, config.whisper_threads)
+    return FasterWhisperTranscriber(
+        config.whisper_model, 
+        config.whisper_threads, 
+        device=config.whisper_device
+    )

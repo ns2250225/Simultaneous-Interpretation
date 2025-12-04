@@ -98,7 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--transcriber",
         choices=["whispercpp", "faster-whisper"],
-        default="whispercpp",
+        default="faster-whisper",
         help="Speech-to-text backend to use.",
     )
     parser.add_argument(
@@ -110,6 +110,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--whisper-threads",
         type=int,
         help="Number of CPU threads for whisper.cpp. Defaults to automatic selection.",
+    )
+    parser.add_argument(
+        "--whisper-device",
+        default="auto",
+        choices=["cpu", "cuda", "auto"],
+        help="Device to use for inference (cpu, cuda, or auto). Default is auto.",
     )
     parser.add_argument(
         "--history",

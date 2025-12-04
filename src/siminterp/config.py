@@ -31,6 +31,7 @@ class AppConfig:
     transcriber: str
     whisper_model: str
     whisper_threads: Optional[int]
+    whisper_device: str
     chunk_history: int
     phrase_time_limit: int
     pause_threshold: float
@@ -99,9 +100,10 @@ def build_config(args) -> AppConfig:
         openai_model=openai_model,
         tts_voice=getattr(args, "voice", "alloy"),
         tts_model=tts_model,
-        transcriber=getattr(args, "transcriber", "whispercpp"),
+        transcriber=getattr(args, "transcriber", "faster-whisper"),
         whisper_model=getattr(args, "whisper_model", "base.en"),
         whisper_threads=whisper_threads,
+        whisper_device=getattr(args, "whisper_device", "auto"),
         chunk_history=chunk_history,
         phrase_time_limit=max(1, int(getattr(args, "phrase_time_limit", 8))),
         pause_threshold=max(0.1, float(getattr(args, "pause_threshold", 0.8))),
