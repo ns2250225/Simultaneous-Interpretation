@@ -13,7 +13,7 @@
 pip install -r requirements.txt
 ```
 
-## 配置
+## 配置（支持openai格式的模型，比如deepseek的模型，填写对应的url和模型名字和key就行）
 在运行 CLI 之前，创建一个 `.env` 文件或导出环境变量：
 ```bash
 OPENAI_API_KEY=API-KEY
