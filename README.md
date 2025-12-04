@@ -15,7 +15,7 @@ pip install -r requirements.txt
 ```
 
 ## 配置（支持openai格式的模型，比如deepseek的模型，填写对应的url和模型名字和key就行）
-在运行 CLI 之前，创建一个 `.env` 文件或导出环境变量：
+在运行 GUI 之前，创建一个 `.env` 文件或导出环境变量(或者直接在GUI界面的设置页面修改配置)：
 ```bash
 OPENAI_API_KEY=API-KEY
 OPENAI_BASE_URL=可以是中转的url
@@ -24,10 +24,6 @@ OPENAI_TTS_MODEL=tts-1
 ```
 
 ## 使用方法
-列出可用的麦克风和扬声器：
-```bash
-python -m src.siminterp --list-devices
-```
 
 ### 启动 GUI 界面
 如果您更喜欢图形化界面，可以使用 `--gui` 参数启动：
