@@ -1,0 +1,7 @@
+faster-whisper>=1.0.0
+openai>=1.35.0
+pyaudio
+python-dotenv
+rich
+speechrecognition
+whispercpp>=0.1.0
