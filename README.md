@@ -39,6 +39,12 @@ python -m src.siminterp --input-language zh --target-language en --input-device 
 python -m src.siminterp --translate --tts --tts-provider coqui --input-language zh --target-language en
 ```
 
+**使用 Edge TTS（免费/高质量 TTS）：**
+```bash
+python -m src.siminterp --translate --tts --tts-provider edge-tts --voice en-US-AriaNeural
+```
+你可以通过 `edge-tts --list-voices` 命令查看所有可用的 Edge TTS 语音。
+
 **调整停顿阈值（控制断句灵敏度）：**
 ```bash
 python -m src.siminterp --pause-threshold 1.2 ...
