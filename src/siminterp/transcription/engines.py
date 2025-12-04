@@ -59,6 +59,7 @@ class FasterWhisperTranscriber:
 
         print("DEBUG: Importing faster_whisper...")
         from faster_whisper import WhisperModel, download_model  # type: ignore
+        from huggingface_hub import snapshot_download
 
         # Determine device and compute type
         if device == "auto":
@@ -92,11 +93,34 @@ class FasterWhisperTranscriber:
         if not os.path.isdir(model_size) and not os.path.isfile(model_size):
              print(f"DEBUG: Downloading model '{model_size}'...")
              try:
-                 model_path = download_model(model_size)
+                 # Custom download with explicit tqdm logging via huggingface_hub
+                 # Faster-whisper's download_model uses snapshot_download internally but might hide progress in some envs
+                 # We reconstruct the repo_id logic roughly or just call snapshot_download directly if we know the repo.
+                 # Faster-whisper usually maps "base" -> "systran/faster-whisper-base"
+                 
+                 repo_id = f"systran/faster-whisper-{model_size}"
+                 # Allow common patterns
+                 allow_patterns = [
+                    "config.json",
+                    "model.bin",
+                    "tokenizer.json",
+                    "vocabulary.*",
+                 ]
+                 
+                 model_path = snapshot_download(
+                    repo_id=repo_id,
+                    allow_patterns=allow_patterns,
+                    tqdm_class=None # Use default tqdm which prints to stderr
+                 )
+                 
                  print(f"DEBUG: Model downloaded to '{model_path}'")
              except Exception as e:
-                 print(f"WARNING: Failed to download model: {e}")
-                 # Fallback to letting WhisperModel handle it or failing
+                 print(f"WARNING: Failed to download model with custom method: {e}")
+                 print("DEBUG: Fallback to default download_model...")
+                 try:
+                    model_path = download_model(model_size)
+                 except Exception as e2:
+                    print(f"ERROR: Fallback download also failed: {e2}")
 
         # Disable VAD during loading just in case
         self.model = WhisperModel(

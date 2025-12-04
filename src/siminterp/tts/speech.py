@@ -235,7 +235,11 @@ class EdgeTTSEngine:
                 output=True,
                 output_device_index=output_device_index,
             )
-            stream.write(decoded.samples)
+            # Ensure data is bytes, decoded.samples might be memoryview or array
+            audio_data = decoded.samples
+            if hasattr(audio_data, "tobytes"):
+                 audio_data = audio_data.tobytes()
+            stream.write(audio_data)
         except Exception:
             raise
         finally:
