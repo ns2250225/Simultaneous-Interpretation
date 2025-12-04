@@ -2,6 +2,7 @@
 
 ## 界面预览
 ![](./demo.png)
+![](./demo2.png)
 
 ## 前置要求
 - Python 3.10 或更高版本。
@@ -31,7 +32,7 @@ python -m src.siminterp --list-devices
 ### 启动 GUI 界面
 如果您更喜欢图形化界面，可以使用 `--gui` 参数启动：
 ```bash
-python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --whisper-model large-v3 --whisper-device auto
+python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --whisper-model tiny --whisper-device auto
 ```
 在 GUI 中，您可以方便地选择输入/输出设备、源语言/目标语言、TTS 引擎以及推理设备。
 
@@ -43,20 +44,6 @@ medium
 tiny
 base
 small
-```
-
-### 支持的声音
-```
-alloy
-ash
-ballad
-coral
-echo
-fable
-nova
-onyx
-sage
-shimmer
 ```
 
 ### 支持的语言
