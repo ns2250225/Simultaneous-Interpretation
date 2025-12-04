@@ -30,6 +30,8 @@ class FasterWhisperTranscriber:
     def __init__(self, model_size: str, threads: Optional[int] = None, device: str = "auto"):
         os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
         
+        print(f"DEBUG: Initializing FasterWhisperTranscriber with model={model_size}, device={device}")
+
         # Attempt to add NVIDIA library paths for Windows if installed via pip
         if os.name == "nt":
             try:
@@ -55,7 +57,8 @@ class FasterWhisperTranscriber:
             except (ImportError, AttributeError):
                 pass
 
-        from faster_whisper import WhisperModel  # type: ignore
+        print("DEBUG: Importing faster_whisper...")
+        from faster_whisper import WhisperModel, download_model  # type: ignore
 
         # Determine device and compute type
         if device == "auto":
@@ -67,6 +70,8 @@ class FasterWhisperTranscriber:
                     device = "cpu"
             except ImportError:
                 device = "cpu"
+        
+        print(f"DEBUG: Selected device: {device}")
 
         # Fallback for CUDA if no NVIDIA libs found
         if device == "cuda":
@@ -78,15 +83,31 @@ class FasterWhisperTranscriber:
                 device = "cpu"
 
         compute_type = "float16" if device == "cuda" else "int8"
+        print(f"DEBUG: Selected compute_type: {compute_type}")
 
         cpu_threads = threads or max(1, (os.cpu_count() or 2) // 2)
+        print(f"DEBUG: Loading model (threads={cpu_threads})...")
+        
+        model_path = model_size
+        if not os.path.isdir(model_size) and not os.path.isfile(model_size):
+             print(f"DEBUG: Downloading model '{model_size}'...")
+             try:
+                 model_path = download_model(model_size)
+                 print(f"DEBUG: Model downloaded to '{model_path}'")
+             except Exception as e:
+                 print(f"WARNING: Failed to download model: {e}")
+                 # Fallback to letting WhisperModel handle it or failing
+
+        # Disable VAD during loading just in case
         self.model = WhisperModel(
-            model_size,
+            model_path,
             device=device,
             compute_type=compute_type,
             cpu_threads=cpu_threads,
             num_workers=cpu_threads,
+            download_root=None
         )
+        print("DEBUG: Model loaded successfully.")
 
     def transcribe_file(self, audio_path: Path, language: str) -> str:
         segments, _ = self.model.transcribe(

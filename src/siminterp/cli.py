@@ -66,7 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--model",
         help=(
             "OpenAI model identifier to use for translation. "
-            "Currently supported options include gpt-5, gpt-5-mini, gpt-5-nano, gpt-4o, and gpt-4o-mini. "
+            "Currently supported options include gpt-5, gpt-5-mini, gpt-5-nano, gpt-4o, gpt-4o-mini, deepseek-chat, and deepseek-reasoner. "
             "Can be set via OPENAI_TRANSLATION_MODEL env var."
         ),
     )
@@ -78,9 +78,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--tts-provider",
-        choices=["openai", "coqui"],
+        choices=["openai", "coqui", "edge-tts"],
         default="openai",
-        help="Text-to-speech provider to use (openai or coqui).",
+        help="Text-to-speech provider to use (openai, coqui, or edge-tts).",
     )
     parser.add_argument(
         "--tts-model",

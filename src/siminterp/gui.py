@@ -11,6 +11,7 @@ from .pipeline import InterpretationPipeline
 from .logging_utils import RichLogger
 from .transcription.engines import create_transcriber
 from .dictionary import load_dictionary
+from .openai_models import TRANSLATION_MODELS
 from .__main__ import build_translator, build_tts_engine
 
 class GuiLogger(RichLogger):
@@ -86,45 +87,62 @@ class SimInterpGUI:
         self.target_lang_combo['values'] = ['en', 'zh', 'fr', 'es', 'de', 'ja', 'ko']  # Common languages
         self.target_lang_combo.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
 
+        # Translation Model
+        tk.Label(self.root, text="翻译模型：").grid(row=4, column=0, padx=5, pady=5, sticky="w")
+        self.translation_model_var = tk.StringVar(value=self.config.openai_model)
+        self.translation_model_combo = ttk.Combobox(self.root, textvariable=self.translation_model_var)
+        self.translation_model_combo['values'] = list(TRANSLATION_MODELS)
+        self.translation_model_combo.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
+
         # Pause Threshold
-        tk.Label(self.root, text="停顿阈值 (秒)：").grid(row=4, column=0, padx=5, pady=5, sticky="w")
+        tk.Label(self.root, text="停顿阈值 (秒)：").grid(row=5, column=0, padx=5, pady=5, sticky="w")
         self.pause_threshold_var = tk.StringVar(value=str(self.config.pause_threshold))
         self.pause_threshold_entry = tk.Entry(self.root, textvariable=self.pause_threshold_var)
-        self.pause_threshold_entry.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
+        self.pause_threshold_entry.grid(row=5, column=1, padx=5, pady=5, sticky="ew")
 
         # TTS Speed
-        tk.Label(self.root, text="TTS 语速：").grid(row=5, column=0, padx=5, pady=5, sticky="w")
+        tk.Label(self.root, text="TTS 语速：").grid(row=6, column=0, padx=5, pady=5, sticky="w")
         self.tts_speed_var = tk.StringVar(value=str(self.config.tts_speed))
         self.tts_speed_entry = tk.Entry(self.root, textvariable=self.tts_speed_var)
-        self.tts_speed_entry.grid(row=5, column=1, padx=5, pady=5, sticky="ew")
+        self.tts_speed_entry.grid(row=6, column=1, padx=5, pady=5, sticky="ew")
 
         # Inference Device
-        tk.Label(self.root, text="推理设备：").grid(row=6, column=0, padx=5, pady=5, sticky="w")
+        tk.Label(self.root, text="推理设备：").grid(row=7, column=0, padx=5, pady=5, sticky="w")
         self.device_var = tk.StringVar(value=self.config.whisper_device)
         self.device_combo = ttk.Combobox(self.root, textvariable=self.device_var, state="readonly")
         self.device_combo['values'] = ['auto', 'cpu', 'cuda']
-        self.device_combo.grid(row=6, column=1, padx=5, pady=5, sticky="ew")
+        self.device_combo.grid(row=7, column=1, padx=5, pady=5, sticky="ew")
 
         # TTS Provider
-        tk.Label(self.root, text="TTS 引擎：").grid(row=7, column=0, padx=5, pady=5, sticky="w")
+        tk.Label(self.root, text="TTS 引擎：").grid(row=8, column=0, padx=5, pady=5, sticky="w")
         self.tts_provider_var = tk.StringVar(value=self.config.tts_provider)
         self.tts_provider_combo = ttk.Combobox(self.root, textvariable=self.tts_provider_var, state="readonly")
-        self.tts_provider_combo['values'] = ['openai', 'coqui']
-        self.tts_provider_combo.grid(row=7, column=1, padx=5, pady=5, sticky="ew")
+        self.tts_provider_combo['values'] = ['openai', 'coqui', 'edge-tts']
+        self.tts_provider_combo.grid(row=8, column=1, padx=5, pady=5, sticky="ew")
+
+        # TTS Voice
+        tk.Label(self.root, text="TTS 语音：").grid(row=9, column=0, padx=5, pady=5, sticky="w")
+        self.tts_voice_var = tk.StringVar(value=self.config.tts_voice)
+        self.tts_voice_entry = tk.Entry(self.root, textvariable=self.tts_voice_var)
+        self.tts_voice_entry.grid(row=9, column=1, padx=5, pady=5, sticky="ew")
 
         # Buttons
         btn_frame = tk.Frame(self.root)
-        btn_frame.grid(row=8, column=0, columnspan=2, pady=10)
+        btn_frame.grid(row=10, column=0, columnspan=2, pady=10)
         
-        self.start_btn = tk.Button(btn_frame, text="开始收音", command=self.start_listening, bg="green", fg="white")
+        self.start_btn = tk.Button(btn_frame, text="开始收音", command=self.start_listening)
+        if self.root.tk.call('tk', 'windowingsystem') != 'aqua':
+             self.start_btn.config(bg="green", fg="white")
         self.start_btn.pack(side=tk.LEFT, padx=5)
         
-        self.stop_btn = tk.Button(btn_frame, text="停止", command=self.stop_listening, state=tk.DISABLED, bg="red", fg="white")
+        self.stop_btn = tk.Button(btn_frame, text="停止", command=self.stop_listening, state=tk.DISABLED)
+        if self.root.tk.call('tk', 'windowingsystem') != 'aqua':
+             self.stop_btn.config(bg="red", fg="white")
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
         # Log Area
         self.log_area = scrolledtext.ScrolledText(self.root, width=80, height=20)
-        self.log_area.grid(row=9, column=0, columnspan=2, padx=5, pady=5)
+        self.log_area.grid(row=11, column=0, columnspan=2, padx=5, pady=5)
 
         self.root.columnconfigure(1, weight=1)
 
@@ -142,8 +160,10 @@ class SimInterpGUI:
         self.config.output_device_index = output_idx
         self.config.input_language = self.input_lang_var.get()
         self.config.translation_language = self.target_lang_var.get()
+        self.config.openai_model = self.translation_model_var.get()
         self.config.whisper_device = self.device_var.get()
         self.config.tts_provider = self.tts_provider_var.get()
+        self.config.tts_voice = self.tts_voice_var.get()
         try:
             self.config.pause_threshold = float(self.pause_threshold_var.get())
             self.config.tts_speed = float(self.tts_speed_var.get())
@@ -157,10 +177,12 @@ class SimInterpGUI:
         self.output_combo.config(state=tk.DISABLED)
         self.input_lang_combo.config(state=tk.DISABLED)
         self.target_lang_combo.config(state=tk.DISABLED)
+        self.translation_model_combo.config(state=tk.DISABLED)
         self.pause_threshold_entry.config(state=tk.DISABLED)
         self.tts_speed_entry.config(state=tk.DISABLED)
         self.device_combo.config(state=tk.DISABLED)
         self.tts_provider_combo.config(state=tk.DISABLED)
+        self.tts_voice_entry.config(state=tk.DISABLED)
         
         # Clear log area
         self.log_area.delete('1.0', tk.END)
@@ -227,10 +249,12 @@ class SimInterpGUI:
         self.output_combo.config(state="readonly")
         self.input_lang_combo.config(state=tk.NORMAL)
         self.target_lang_combo.config(state=tk.NORMAL)
+        self.translation_model_combo.config(state=tk.NORMAL)
         self.pause_threshold_entry.config(state=tk.NORMAL)
         self.tts_speed_entry.config(state=tk.NORMAL)
         self.device_combo.config(state="readonly")
         self.tts_provider_combo.config(state="readonly")
+        self.tts_voice_entry.config(state=tk.NORMAL)
 
 def run_gui(config: AppConfig):
     root = tk.Tk()

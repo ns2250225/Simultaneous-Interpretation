@@ -7,3 +7,5 @@ pyaudio
 python-dotenv
 rich
 speechrecognition
+edge-tts
+miniaudio

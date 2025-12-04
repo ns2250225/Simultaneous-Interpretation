@@ -11,6 +11,8 @@ TRANSLATION_MODELS: Tuple[str, ...] = (
     "gpt-5-nano",
     "gpt-4o",
     "gpt-4o-mini",
+    "deepseek-chat",
+    "deepseek-reasoner",
 )
 
 # Default translation model keeps compatibility with previous releases while

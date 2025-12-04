@@ -11,7 +11,7 @@ from .logging_utils import RichLogger
 from .pipeline import InterpretationPipeline
 from .transcription.engines import create_transcriber
 from .translation.openai_translator import OpenAITranslator
-from .tts.speech import OpenAITTSEngine, CoquiTTSEngine, TTSEngineProtocol
+from .tts.speech import OpenAITTSEngine, CoquiTTSEngine, EdgeTTSEngine, TTSEngineProtocol
 
 
 def build_translator(config: AppConfig, client: OpenAI) -> OpenAITranslator | None:
@@ -28,6 +28,11 @@ def build_tts_engine(config: AppConfig, client: OpenAI) -> TTSEngineProtocol | N
         # Use user-provided model or default to XTTS v2
         model_name = config.tts_model if config.tts_model != "tts-1" else "tts_models/multilingual/multi-dataset/xtts_v2"
         return CoquiTTSEngine(model_name=model_name, speed=config.tts_speed)
+
+    if config.tts_provider == "edge-tts":
+        # Use user-provided voice or default to en-US-AriaNeural if default "alloy" is still set
+        voice = config.tts_voice if config.tts_voice != "alloy" else "en-US-AriaNeural"
+        return EdgeTTSEngine(voice=voice, speed=config.tts_speed)
 
     return OpenAITTSEngine(client=client, model=config.tts_model, voice=config.tts_voice, speed=config.tts_speed)
 

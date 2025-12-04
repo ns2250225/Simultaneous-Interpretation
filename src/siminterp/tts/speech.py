@@ -172,3 +172,74 @@ class CoquiTTSEngine:
                 stream.stop_stream()
                 stream.close()
             audio_interface.terminate()
+
+class EdgeTTSEngine:
+    """Microsoft Edge TTS engine."""
+
+    def __init__(self, voice: str = "en-US-AriaNeural", speed: float = 1.0) -> None:
+        self.voice = voice
+        self.speed = speed
+
+    def speak(self, text: str, output_device_index: Optional[int]) -> None:
+        if not text:
+            return
+
+        try:
+            import edge_tts
+            import miniaudio
+            import asyncio
+        except ImportError as exc:
+            raise RuntimeError(
+                "edge-tts or miniaudio package not installed. Install them with 'pip install edge-tts miniaudio'."
+            ) from exc
+
+        # Calculate rate string
+        rate_val = int((self.speed - 1.0) * 100)
+        sign = "+" if rate_val >= 0 else ""
+        rate_str = f"{sign}{rate_val}%"
+
+        async def _generate_audio():
+            communicate = edge_tts.Communicate(text, self.voice, rate=rate_str)
+            mp3_data = b""
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    mp3_data += chunk["data"]
+            return mp3_data
+
+        try:
+            mp3_data = asyncio.run(_generate_audio())
+        except Exception:
+            raise
+
+        if not mp3_data:
+            return
+
+        # Decode MP3 to PCM
+        try:
+            decoded = miniaudio.decode(
+                mp3_data, 
+                nchannels=1, 
+                sample_rate=24000, 
+                output_format=miniaudio.SampleFormat.SIGNED16
+            )
+        except Exception:
+            raise
+
+        audio_interface = pyaudio.PyAudio()
+        stream = None
+        try:
+            stream = audio_interface.open(
+                format=pyaudio.paInt16,
+                channels=decoded.nchannels,
+                rate=decoded.sample_rate,
+                output=True,
+                output_device_index=output_device_index,
+            )
+            stream.write(decoded.samples)
+        except Exception:
+            raise
+        finally:
+            if stream:
+                stream.stop_stream()
+                stream.close()
+            audio_interface.terminate()
