@@ -30,14 +30,14 @@ python -m src.siminterp --list-devices
 
 启动同声传译会话（示例：将中文翻译成英文，播放合成语音，并使用 faster-whisper 模型）：
 ```bash
-python -m src.siminterp --input-language zh --target-language en --input-device 1 --output-device 3 --translate --tts --voice alloy --transcriber faster-whisper --whisper-model base
+python -m src.siminterp --input-language zh --target-language en --input-device 1 --output-device 3 --translate --tts --voice alloy --transcriber faster-whisper --whisper-model large-v3
 ```
 按 `CTRL+C` 停止。应用程序将优雅地关闭后台工作线程，并将带时间戳的转录文本保存到您的“tmp”文件夹中。
 
 ### 启动 GUI 界面
 如果您更喜欢图形化界面，可以使用 `--gui` 参数启动：
 ```bash
-python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --whisper-model base
+python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --whisper-model large-v3
 ```
 在 GUI 中，您可以方便地选择输入/输出设备以及源语言和目标语言。
 
@@ -49,6 +49,20 @@ medium
 tiny
 base
 small
+```
+
+### 支持的声音
+```
+alloy
+ash
+ballad
+coral
+echo
+fable
+nova
+onyx
+sage
+shimmer
 ```
 
 ### 支持的语言

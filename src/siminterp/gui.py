@@ -35,7 +35,7 @@ class GuiLogger(RichLogger):
 class SimInterpGUI:
     def __init__(self, root: tk.Tk, config: AppConfig):
         self.root = root
-        self.root.title("Simultaneous Interpretation")
+        self.root.title("同声传译")
         self.config = config
         self.pipeline: Optional[InterpretationPipeline] = None
         
@@ -45,7 +45,7 @@ class SimInterpGUI:
         
     def _create_widgets(self):
         # Input Device
-        tk.Label(self.root, text="Input Device:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        tk.Label(self.root, text="输入设备：").grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self.input_device_var = tk.StringVar()
         self.input_combo = ttk.Combobox(self.root, textvariable=self.input_device_var, state="readonly")
         self.input_combo['values'] = [f"{d.index}: {d.name}" for d in self.input_devices]
@@ -59,7 +59,7 @@ class SimInterpGUI:
         self.input_combo.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
 
         # Output Device
-        tk.Label(self.root, text="Output Device:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        tk.Label(self.root, text="输出设备：").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         self.output_device_var = tk.StringVar()
         self.output_combo = ttk.Combobox(self.root, textvariable=self.output_device_var, state="readonly")
         self.output_combo['values'] = [f"{d.index}: {d.name}" for d in self.output_devices]
@@ -73,22 +73,34 @@ class SimInterpGUI:
         self.output_combo.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
 
         # Input Language
-        tk.Label(self.root, text="Input Language:").grid(row=2, column=0, padx=5, pady=5, sticky="w")
+        tk.Label(self.root, text="输入语言：").grid(row=2, column=0, padx=5, pady=5, sticky="w")
         self.input_lang_var = tk.StringVar(value=self.config.input_language)
         self.input_lang_combo = ttk.Combobox(self.root, textvariable=self.input_lang_var)
         self.input_lang_combo['values'] = ['en', 'zh', 'fr', 'es', 'de', 'ja', 'ko']  # Common languages
         self.input_lang_combo.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
 
         # Target Language
-        tk.Label(self.root, text="Target Language:").grid(row=3, column=0, padx=5, pady=5, sticky="w")
+        tk.Label(self.root, text="目标语言：").grid(row=3, column=0, padx=5, pady=5, sticky="w")
         self.target_lang_var = tk.StringVar(value=self.config.translation_language)
         self.target_lang_combo = ttk.Combobox(self.root, textvariable=self.target_lang_var)
         self.target_lang_combo['values'] = ['en', 'zh', 'fr', 'es', 'de', 'ja', 'ko']  # Common languages
         self.target_lang_combo.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
 
+        # Pause Threshold
+        tk.Label(self.root, text="停顿阈值 (秒)：").grid(row=4, column=0, padx=5, pady=5, sticky="w")
+        self.pause_threshold_var = tk.StringVar(value=str(self.config.pause_threshold))
+        self.pause_threshold_entry = tk.Entry(self.root, textvariable=self.pause_threshold_var)
+        self.pause_threshold_entry.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
+
+        # TTS Speed
+        tk.Label(self.root, text="TTS 语速：").grid(row=5, column=0, padx=5, pady=5, sticky="w")
+        self.tts_speed_var = tk.StringVar(value=str(self.config.tts_speed))
+        self.tts_speed_entry = tk.Entry(self.root, textvariable=self.tts_speed_var)
+        self.tts_speed_entry.grid(row=5, column=1, padx=5, pady=5, sticky="ew")
+
         # Buttons
         btn_frame = tk.Frame(self.root)
-        btn_frame.grid(row=4, column=0, columnspan=2, pady=10)
+        btn_frame.grid(row=6, column=0, columnspan=2, pady=10)
         
         self.start_btn = tk.Button(btn_frame, text="开始收音", command=self.start_listening, bg="green", fg="white")
         self.start_btn.pack(side=tk.LEFT, padx=5)
@@ -98,7 +110,7 @@ class SimInterpGUI:
 
         # Log Area
         self.log_area = scrolledtext.ScrolledText(self.root, width=80, height=20)
-        self.log_area.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
+        self.log_area.grid(row=7, column=0, columnspan=2, padx=5, pady=5)
 
         self.root.columnconfigure(1, weight=1)
 
@@ -116,6 +128,12 @@ class SimInterpGUI:
         self.config.output_device_index = output_idx
         self.config.input_language = self.input_lang_var.get()
         self.config.translation_language = self.target_lang_var.get()
+        try:
+            self.config.pause_threshold = float(self.pause_threshold_var.get())
+            self.config.tts_speed = float(self.tts_speed_var.get())
+        except ValueError:
+            self.log_area.insert(tk.END, "错误：阈值或语速格式无效。\n")
+            return
 
         # Disable inputs immediately to prevent multiple clicks
         self.start_btn.config(state=tk.DISABLED)
@@ -123,10 +141,12 @@ class SimInterpGUI:
         self.output_combo.config(state=tk.DISABLED)
         self.input_lang_combo.config(state=tk.DISABLED)
         self.target_lang_combo.config(state=tk.DISABLED)
+        self.pause_threshold_entry.config(state=tk.DISABLED)
+        self.tts_speed_entry.config(state=tk.DISABLED)
         
         # Clear log area
         self.log_area.delete('1.0', tk.END)
-        self.log_area.insert(tk.END, "Initializing... Please wait.\n")
+        self.log_area.insert(tk.END, "正在初始化... 请稍候。\n")
 
         threading.Thread(target=self._start_background, daemon=True).start()
 
@@ -135,15 +155,15 @@ class SimInterpGUI:
             # Initialize components (Background Thread)
             # Note: GuiLogger uses root.after so it's thread-safe
             logger = GuiLogger(self.config.log_file, self.log_area)
-            logger.log_text("Starting initialization...")
+            logger.log_text("开始初始化...")
             
             client = OpenAI(api_key=self.config.api_key, base_url=self.config.base_url)
-            logger.log_text("OpenAI client initialized.")
+            logger.log_text("OpenAI 客户端已初始化。")
             
             # Heavy lifting: loading models
-            logger.log_text("Loading transcriber model... (this may take a while)")
+            logger.log_text("正在加载转录模型... (可能需要一些时间)")
             transcriber = create_transcriber(self.config)
-            logger.log_text("Transcriber loaded.")
+            logger.log_text("转录模型已加载。")
 
             translator = build_translator(self.config, client)
             tts_engine = build_tts_engine(self.config, client)
@@ -158,7 +178,7 @@ class SimInterpGUI:
                 tts_engine=tts_engine,
             )
             
-            logger.log_text("Pipeline created. Starting...")
+            logger.log_text("流水线已创建。正在启动...")
             
             # Enable stop button (Main Thread update)
             self.root.after(0, lambda: self.stop_btn.config(state=tk.NORMAL))
@@ -172,7 +192,7 @@ class SimInterpGUI:
             self.root.after(0, lambda: self._handle_start_error(e))
 
     def _handle_start_error(self, e):
-        self.log_area.insert(tk.END, f"Error starting: {str(e)}\n")
+        self.log_area.insert(tk.END, f"启动错误：{str(e)}\n")
         self.log_area.see(tk.END)
         self.stop_listening() # Reset UI state
 
@@ -189,6 +209,8 @@ class SimInterpGUI:
         self.output_combo.config(state="readonly")
         self.input_lang_combo.config(state=tk.NORMAL)
         self.target_lang_combo.config(state=tk.NORMAL)
+        self.pause_threshold_entry.config(state=tk.NORMAL)
+        self.tts_speed_entry.config(state=tk.NORMAL)
 
 def run_gui(config: AppConfig):
     root = tk.Tk()

@@ -124,6 +124,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum length of captured phrases in seconds.",
     )
     parser.add_argument(
+        "--pause-threshold",
+        type=float,
+        default=0.8,
+        help="Seconds of non-speaking audio before a phrase is considered complete.",
+    )
+    parser.add_argument(
         "--ambient-duration",
         type=float,
         default=2.0,

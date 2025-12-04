@@ -49,6 +49,7 @@ class InterpretationPipeline:
 
     def start(self) -> None:
         microphone = sr.Microphone(device_index=self.config.input_device_index)
+        self.recognizer.pause_threshold = self.config.pause_threshold
         with microphone as source:
             self.logger.log_panel(
                 f"Adjusting for ambient noise... (Language: {self.config.input_language})",

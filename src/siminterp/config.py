@@ -33,6 +33,7 @@ class AppConfig:
     whisper_threads: Optional[int]
     chunk_history: int
     phrase_time_limit: int
+    pause_threshold: float
     ambient_duration: float
     tts_speed: float
     log_file: Path
@@ -103,6 +104,7 @@ def build_config(args) -> AppConfig:
         whisper_threads=whisper_threads,
         chunk_history=chunk_history,
         phrase_time_limit=max(1, int(getattr(args, "phrase_time_limit", 8))),
+        pause_threshold=max(0.1, float(getattr(args, "pause_threshold", 0.8))),
         ambient_duration=max(0.0, float(getattr(args, "ambient_duration", 2.0))),
         tts_speed=max(0.25, float(getattr(args, "tts_speed", 1.0))),
         log_file=log_file,
