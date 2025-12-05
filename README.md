@@ -25,7 +25,7 @@ OPENAI_TTS_MODEL=tts-1
 
 ## 使用方法
 
-### 启动 GUI 界面
+### 启动 GUI 界面（点击开始的时候会自动下载模型，可以在终端查看进度）
 如果您更喜欢图形化界面，可以使用 `--gui` 参数启动：
 ```bash
 python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --whisper-model tiny --whisper-device auto

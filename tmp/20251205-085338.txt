@@ -1,0 +1,26 @@
+Transcript:
+开始初始化...
+OpenAI 客户端已初始化。
+正在加载转录模型... (可能需要一些时间)
+转录模型已加载。
+流水线已创建。正在启动...
+你好啊
+今天天氣怎麼樣?
+我觉得不错
+就是就是
+為什麼要連接網絡?
+你有点卡顿啊
+救命救命
+今天一起去吃麥當勞
+等下一起吃饭吧
+
+Translated:
+Hello!
+How's the weather today?
+I think it's not bad.
+Exactly, exactly.
+Why connect to the internet?
+You're lagging a bit.
+Help! Help!
+Let's go to McDonald's together today.
+Let's eat together later.

@@ -1,0 +1,14 @@
+Transcript:
+开始初始化...
+OpenAI 客户端已初始化。
+正在加载转录模型... (可能需要一些时间)
+转录模型已加载。
+流水线已创建。正在启动...
+你好啊
+大家好
+今天天氣怎麼樣?
+
+Translated:
+Hello!
+Hello, everyone!
+How's the weather today?

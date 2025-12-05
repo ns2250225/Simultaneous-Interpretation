@@ -157,14 +157,59 @@ class CoquiTTSEngine:
         audio_interface = pyaudio.PyAudio()
         stream = None
         try:
-            stream = audio_interface.open(
-                format=pyaudio.paInt16,
-                channels=1,
-                rate=sample_rate,
-                output=True,
-                output_device_index=output_device_index,
-            )
-            stream.write(audio_data)
+            try:
+                stream = audio_interface.open(
+                    format=pyaudio.paInt16,
+                    channels=1,
+                    rate=sample_rate,
+                    output=True,
+                    output_device_index=output_device_index,
+                )
+                stream.write(audio_data)
+            except OSError as e:
+                # Handle "Invalid sample rate" error (Errno -9997) by resampling
+                # Also handle -9999 "Unanticipated host error" which often happens with invalid sample rates on WASAPI
+                if e.errno == -9997 or e.errno == -9999 or "Invalid sample rate" in str(e) or "Unanticipated host error" in str(e):
+                    # Fallback to 48000Hz which is widely supported
+                    fallback_rate = 48000
+                    # If original was already 48000, try 44100
+                    if sample_rate == fallback_rate:
+                        fallback_rate = 44100
+                    
+                    # Resample using numpy linear interpolation
+                    duration_s = len(wav_np) / sample_rate
+                    new_num_samples = int(duration_s * fallback_rate)
+                    
+                    x_old = np.linspace(0, duration_s, len(wav_np))
+                    x_new = np.linspace(0, duration_s, new_num_samples)
+                    
+                    wav_resampled = np.interp(x_new, x_old, wav_np)
+                    wav_int16 = (wav_resampled * 32767).astype(np.int16)
+                    audio_data = wav_int16.tobytes()
+                    
+                    try:
+                        stream = audio_interface.open(
+                            format=pyaudio.paInt16,
+                            channels=1,
+                            rate=fallback_rate,
+                            output=True,
+                            output_device_index=output_device_index,
+                        )
+                    except OSError:
+                        # If still fails (possibly due to device index), try default device
+                        if output_device_index is not None:
+                            stream = audio_interface.open(
+                                format=pyaudio.paInt16,
+                                channels=1,
+                                rate=fallback_rate,
+                                output=True,
+                                output_device_index=None,
+                            )
+                        else:
+                            raise
+                    stream.write(audio_data)
+                else:
+                    raise
         except Exception:
             raise
         finally:
@@ -206,10 +251,21 @@ class EdgeTTSEngine:
                     mp3_data += chunk["data"]
             return mp3_data
 
-        try:
-            mp3_data = asyncio.run(_generate_audio())
-        except Exception:
-            raise
+        mp3_data = None
+        import time
+        # Retry up to 3 times for network resilience
+        for attempt in range(3):
+            try:
+                mp3_data = asyncio.run(_generate_audio())
+                if mp3_data:
+                    break
+            except Exception as e:
+                # Log or print error if needed, but we are inside a worker usually.
+                # If it's the last attempt, re-raise.
+                if attempt == 2:
+                    raise
+                # Wait briefly before retrying
+                time.sleep(1.0)
 
         if not mp3_data:
             return
@@ -228,18 +284,71 @@ class EdgeTTSEngine:
         audio_interface = pyaudio.PyAudio()
         stream = None
         try:
-            stream = audio_interface.open(
-                format=pyaudio.paInt16,
-                channels=decoded.nchannels,
-                rate=decoded.sample_rate,
-                output=True,
-                output_device_index=output_device_index,
-            )
-            # Ensure data is bytes, decoded.samples might be memoryview or array
-            audio_data = decoded.samples
-            if hasattr(audio_data, "tobytes"):
-                 audio_data = audio_data.tobytes()
-            stream.write(audio_data)
+            try:
+                stream = audio_interface.open(
+                    format=pyaudio.paInt16,
+                    channels=decoded.nchannels,
+                    rate=decoded.sample_rate,
+                    output=True,
+                    output_device_index=output_device_index,
+                )
+                # Ensure data is bytes, decoded.samples might be memoryview or array
+                audio_data = decoded.samples
+                if hasattr(audio_data, "tobytes"):
+                     audio_data = audio_data.tobytes()
+                stream.write(audio_data)
+            except OSError as e:
+                 # Handle "Invalid sample rate" error (Errno -9997) or "Unanticipated host error" (-9999) by resampling
+                if e.errno == -9997 or e.errno == -9999 or "Invalid sample rate" in str(e) or "Unanticipated host error" in str(e):
+                    # Fallback to 48000Hz
+                    fallback_rate = 48000
+                    sample_rate = decoded.sample_rate
+                    if sample_rate == fallback_rate:
+                        fallback_rate = 44100
+                    
+                    # Get audio data as numpy array for resampling
+                    import numpy as np
+                    audio_data_bytes = decoded.samples
+                    if hasattr(audio_data_bytes, "tobytes"):
+                        audio_data_bytes = audio_data_bytes.tobytes()
+                    
+                    # Convert bytes back to numpy int16
+                    wav_np = np.frombuffer(audio_data_bytes, dtype=np.int16)
+                    
+                    # Resample
+                    duration_s = len(wav_np) / sample_rate
+                    new_num_samples = int(duration_s * fallback_rate)
+                    
+                    x_old = np.linspace(0, duration_s, len(wav_np))
+                    x_new = np.linspace(0, duration_s, new_num_samples)
+                    
+                    wav_resampled = np.interp(x_new, x_old, wav_np)
+                    wav_int16 = wav_resampled.astype(np.int16)
+                    audio_data_resampled = wav_int16.tobytes()
+                    
+                    try:
+                        stream = audio_interface.open(
+                            format=pyaudio.paInt16,
+                            channels=decoded.nchannels,
+                            rate=fallback_rate,
+                            output=True,
+                            output_device_index=output_device_index,
+                        )
+                    except OSError:
+                         # If still fails (possibly due to device index), try default device
+                        if output_device_index is not None:
+                            stream = audio_interface.open(
+                                format=pyaudio.paInt16,
+                                channels=decoded.nchannels,
+                                rate=fallback_rate,
+                                output=True,
+                                output_device_index=None,
+                            )
+                        else:
+                            raise
+                    stream.write(audio_data_resampled)
+                else:
+                    raise
         except Exception:
             raise
         finally:

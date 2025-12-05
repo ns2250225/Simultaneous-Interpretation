@@ -9,3 +9,5 @@ rich
 speechrecognition
 edge-tts
 miniaudio
+huggingface_hub
+requests
