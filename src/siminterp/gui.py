@@ -57,6 +57,7 @@ class SimInterpGUI:
     def __init__(self, root: tk.Tk, config: AppConfig):
         self.root = root
         self.root.title("同声传译")
+        self.root.geometry("900x650") # Set default size (wider for side-by-side layout)
         self.config = config
         self.pipeline: Optional[InterpretationPipeline] = None
         
@@ -79,10 +80,49 @@ class SimInterpGUI:
         self._on_tts_provider_change(None)
         
     def _create_main_tab(self):
+        # Main container for 2-column layout
+        container = ttk.Frame(self.main_tab, padding="10")
+        container.pack(fill="both", expand=True)
+
+        # Left Panel: Settings
+        settings_frame = ttk.Frame(container)
+        settings_frame.pack(side=tk.LEFT, fill="both", expand=False, padx=(0, 10))
+        
+        # Configure grid weights for settings
+        settings_frame.columnconfigure(1, weight=1)
+
+        # Right Panel: Logs
+        log_frame = ttk.Frame(container)
+        log_frame.pack(side=tk.LEFT, fill="both", expand=True)
+        
+        self.row_counter = 0
+        
+        def add_setting(label_text, component, col=1, sticky="ew"):
+            # Label (Right aligned)
+            if label_text:
+                ttk.Label(settings_frame, text=label_text + (":" if not label_text.startswith("---") else "")).grid(
+                    row=self.row_counter, column=0, padx=5, pady=5, sticky="e"
+                )
+            # Component
+            component.grid(row=self.row_counter, column=col, padx=5, pady=5, sticky=sticky)
+            self.row_counter += 1
+
+        def add_separator(title):
+            ttk.Separator(settings_frame, orient="horizontal").grid(
+                row=self.row_counter, column=0, columnspan=2, sticky="ew", pady=(15, 5)
+            )
+            self.row_counter += 1
+            ttk.Label(settings_frame, text=title, font=("", 9, "bold")).grid(
+                row=self.row_counter, column=0, columnspan=2, sticky="w", padx=5, pady=2
+            )
+            self.row_counter += 1
+
+        # --- Device Settings ---
+        add_separator("设备设置")
+
         # Input Device
-        tk.Label(self.main_tab, text="输入设备：").grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self.input_device_var = tk.StringVar()
-        self.input_combo = ttk.Combobox(self.main_tab, textvariable=self.input_device_var, state="readonly")
+        self.input_combo = ttk.Combobox(settings_frame, textvariable=self.input_device_var, state="readonly")
         self.input_combo['values'] = [f"{d.index}: {d.name}" for d in self.input_devices]
         if self.config.input_device_index is not None:
             for val in self.input_combo['values']:
@@ -91,12 +131,11 @@ class SimInterpGUI:
                     break
         if not self.input_combo.get() and self.input_devices:
              self.input_combo.current(0)
-        self.input_combo.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        add_setting("输入设备", self.input_combo)
 
         # Output Device
-        tk.Label(self.main_tab, text="输出设备：").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         self.output_device_var = tk.StringVar()
-        self.output_combo = ttk.Combobox(self.main_tab, textvariable=self.output_device_var, state="readonly")
+        self.output_combo = ttk.Combobox(settings_frame, textvariable=self.output_device_var, state="readonly")
         self.output_combo['values'] = [f"{d.index}: {d.name}" for d in self.output_devices]
         if self.config.output_device_index is not None:
             for val in self.output_combo['values']:
@@ -105,83 +144,93 @@ class SimInterpGUI:
                     break
         if not self.output_combo.get() and self.output_devices:
             self.output_combo.current(0)
-        self.output_combo.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        add_setting("输出设备", self.output_combo)
+
+        # --- Language & Model Settings ---
+        add_separator("语言与模型")
 
         # Input Language
-        tk.Label(self.main_tab, text="输入语言：").grid(row=2, column=0, padx=5, pady=5, sticky="w")
         self.input_lang_var = tk.StringVar(value=self.config.input_language)
-        self.input_lang_combo = ttk.Combobox(self.main_tab, textvariable=self.input_lang_var)
-        self.input_lang_combo['values'] = ['en', 'zh', 'fr', 'es', 'de', 'ja', 'ko']  # Common languages
-        self.input_lang_combo.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+        self.input_lang_combo = ttk.Combobox(settings_frame, textvariable=self.input_lang_var)
+        self.input_lang_combo['values'] = ['en', 'zh', 'fr', 'es', 'de', 'ja', 'ko']
+        add_setting("输入语言", self.input_lang_combo)
 
         # Target Language
-        tk.Label(self.main_tab, text="目标语言：").grid(row=3, column=0, padx=5, pady=5, sticky="w")
         self.target_lang_var = tk.StringVar(value=self.config.translation_language)
-        self.target_lang_combo = ttk.Combobox(self.main_tab, textvariable=self.target_lang_var)
-        self.target_lang_combo['values'] = ['en', 'zh', 'fr', 'es', 'de', 'ja', 'ko']  # Common languages
-        self.target_lang_combo.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+        self.target_lang_combo = ttk.Combobox(settings_frame, textvariable=self.target_lang_var)
+        self.target_lang_combo['values'] = ['en', 'zh', 'fr', 'es', 'de', 'ja', 'ko']
+        add_setting("目标语言", self.target_lang_combo)
 
         # Translation Model
-        tk.Label(self.main_tab, text="翻译模型：").grid(row=4, column=0, padx=5, pady=5, sticky="w")
         self.translation_model_var = tk.StringVar(value=self.config.openai_model)
-        self.translation_model_combo = ttk.Combobox(self.main_tab, textvariable=self.translation_model_var)
+        self.translation_model_combo = ttk.Combobox(settings_frame, textvariable=self.translation_model_var)
         self.translation_model_combo['values'] = list(TRANSLATION_MODELS)
-        self.translation_model_combo.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
+        add_setting("翻译模型", self.translation_model_combo)
+
+        # --- Advanced Settings ---
+        add_separator("高级参数")
 
         # Pause Threshold
-        tk.Label(self.main_tab, text="停顿阈值 (秒)：").grid(row=5, column=0, padx=5, pady=5, sticky="w")
         self.pause_threshold_var = tk.StringVar(value=str(self.config.pause_threshold))
-        self.pause_threshold_entry = tk.Entry(self.main_tab, textvariable=self.pause_threshold_var)
-        self.pause_threshold_entry.grid(row=5, column=1, padx=5, pady=5, sticky="ew")
+        self.pause_threshold_entry = tk.Entry(settings_frame, textvariable=self.pause_threshold_var)
+        add_setting("停顿阈值 (秒)", self.pause_threshold_entry)
 
         # TTS Speed
-        tk.Label(self.main_tab, text="TTS 语速：").grid(row=6, column=0, padx=5, pady=5, sticky="w")
         self.tts_speed_var = tk.StringVar(value=str(self.config.tts_speed))
-        self.tts_speed_entry = tk.Entry(self.main_tab, textvariable=self.tts_speed_var)
-        self.tts_speed_entry.grid(row=6, column=1, padx=5, pady=5, sticky="ew")
+        self.tts_speed_entry = tk.Entry(settings_frame, textvariable=self.tts_speed_var)
+        add_setting("TTS 语速", self.tts_speed_entry)
 
         # Inference Device
-        tk.Label(self.main_tab, text="推理设备：").grid(row=7, column=0, padx=5, pady=5, sticky="w")
         self.device_var = tk.StringVar(value=self.config.whisper_device)
-        self.device_combo = ttk.Combobox(self.main_tab, textvariable=self.device_var, state="readonly")
+        self.device_combo = ttk.Combobox(settings_frame, textvariable=self.device_var, state="readonly")
         self.device_combo['values'] = ['auto', 'cpu', 'cuda']
-        self.device_combo.grid(row=7, column=1, padx=5, pady=5, sticky="ew")
+        add_setting("推理设备", self.device_combo)
+
+        # --- TTS Settings ---
+        add_separator("TTS 设置")
 
         # TTS Provider
-        tk.Label(self.main_tab, text="TTS 引擎：").grid(row=8, column=0, padx=5, pady=5, sticky="w")
         self.tts_provider_var = tk.StringVar(value=self.config.tts_provider)
-        self.tts_provider_combo = ttk.Combobox(self.main_tab, textvariable=self.tts_provider_var, state="readonly")
+        self.tts_provider_combo = ttk.Combobox(settings_frame, textvariable=self.tts_provider_var, state="readonly")
         self.tts_provider_combo['values'] = ['openai', 'coqui', 'edge-tts']
-        self.tts_provider_combo.grid(row=8, column=1, padx=5, pady=5, sticky="ew")
         self.tts_provider_combo.bind("<<ComboboxSelected>>", self._on_tts_provider_change)
+        add_setting("TTS 引擎", self.tts_provider_combo)
 
         # TTS Voice (Initially hidden/dynamic)
-        self.tts_voice_label = tk.Label(self.main_tab, text="TTS 语音：")
+        # We create the widgets but don't grid them yet. 
+        # _on_tts_provider_change needs to know where to grid them.
+        # We'll store the row index for dynamic insertion or just reserve a slot.
+        # For simplicity, let's just add them to the grid but manage visibility via _on_tts_provider_change
+        # Actually, our helper function grids immediately. Let's handle this manually.
+        
+        self.tts_voice_label = ttk.Label(settings_frame, text="TTS 语音:")
         self.tts_voice_var = tk.StringVar(value=self.config.tts_voice)
-        # Change to Combobox for selection
-        self.tts_voice_combo = ttk.Combobox(self.main_tab, textvariable=self.tts_voice_var) 
+        self.tts_voice_combo = ttk.Combobox(settings_frame, textvariable=self.tts_voice_var)
         
-        # We don't grid them immediately, _on_tts_provider_change will handle it
-
-        # Buttons
-        btn_frame = tk.Frame(self.main_tab)
-        btn_frame.grid(row=10, column=0, columnspan=2, pady=10)
+        # We will grid these in _on_tts_provider_change. We save the row index to use.
+        self.tts_voice_row = self.row_counter
+        self.row_counter += 1
         
-        self.start_btn = tk.Button(btn_frame, text="开始收音", command=self.start_listening)
+        # --- Controls ---
+        btn_frame = ttk.Frame(settings_frame)
+        btn_frame.grid(row=self.row_counter, column=0, columnspan=2, pady=20)
+        self.row_counter += 1
+        
+        self.start_btn = tk.Button(btn_frame, text="🟢 开始收音", command=self.start_listening)
         if self.root.tk.call('tk', 'windowingsystem') != 'aqua':
              self.start_btn.config(bg="green", fg="white")
-        self.start_btn.pack(side=tk.LEFT, padx=5)
+        self.start_btn.pack(side=tk.LEFT, padx=10)
         
-        self.stop_btn = tk.Button(btn_frame, text="停止", command=self.stop_listening, state=tk.DISABLED)
+        self.stop_btn = tk.Button(btn_frame, text="🛑 停止", command=self.stop_listening, state=tk.DISABLED)
         if self.root.tk.call('tk', 'windowingsystem') != 'aqua':
              self.stop_btn.config(bg="red", fg="white")
-        self.stop_btn.pack(side=tk.LEFT, padx=5)
+        self.stop_btn.pack(side=tk.LEFT, padx=10)
 
-        # Log Area
-        self.log_area = scrolledtext.ScrolledText(self.main_tab, width=80, height=20)
-        self.log_area.grid(row=11, column=0, columnspan=2, padx=5, pady=5)
+        # --- Log Area ---
+        ttk.Label(log_frame, text="输出/日志：").pack(anchor="w", pady=(0, 5))
 
-        self.main_tab.columnconfigure(1, weight=1)
+        self.log_area = scrolledtext.ScrolledText(log_frame, width=40, height=10, wrap="word", relief="groove")
+        self.log_area.pack(fill="both", expand=True)
 
     def _create_settings_tab(self):
         tk.Label(self.settings_tab, text="编辑 .env 配置文件：").pack(anchor="w", padx=5, pady=5)
@@ -218,8 +267,8 @@ class SimInterpGUI:
         
         if provider in TTS_VOICES:
             # Show and populate
-            self.tts_voice_label.grid(row=9, column=0, padx=5, pady=5, sticky="w")
-            self.tts_voice_combo.grid(row=9, column=1, padx=5, pady=5, sticky="ew")
+            self.tts_voice_label.grid(row=self.tts_voice_row, column=0, padx=10, pady=5, sticky="e")
+            self.tts_voice_combo.grid(row=self.tts_voice_row, column=1, padx=10, pady=5, sticky="ew")
             self.tts_voice_combo['values'] = TTS_VOICES[provider]
             
             # Set default if current value is not valid for new provider

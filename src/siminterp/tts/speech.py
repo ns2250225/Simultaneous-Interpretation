@@ -56,8 +56,84 @@ class OpenAITTSEngine:
                 response_format="pcm",
                 speed=self.speed,
             ) as response:
+                # Accumulate audio to handle potential stream issues or resampling if needed
+                # However, for true streaming, we should write chunk by chunk.
+                # If invalid sample rate happens, we can't easily resample a stream on the fly without a buffer or complex logic.
+                # For simplicity and robustness against -9997, we will buffer the whole sentence for OpenAI if stream fails?
+                # Actually, the error happens at audio_interface.open(), BEFORE we write data.
+                
                 for chunk in response.iter_bytes(chunk_size=1024):
-                    stream.write(chunk)
+                    if stream:
+                         stream.write(chunk)
+        except OSError as e:
+             # Handle "Invalid sample rate" error (Errno -9997) or -9999 by buffering and resampling
+             # This block catches errors from audio_interface.open() if it was outside the loop?
+             # No, open() is inside the try block.
+             # If open() fails, we are here.
+             
+             if e.errno == -9997 or e.errno == -9999 or "Invalid sample rate" in str(e) or "Unanticipated host error" in str(e):
+                 # We need to re-request or buffer the audio, then resample.
+                 # Since we are already inside the "with client..." block or passed it? 
+                 # Actually, if open() failed, we haven't started streaming from OpenAI effectively or we can restart it.
+                 # But we can't easily restart the generator.
+                 # Strategy: Since OpenAI TTS is fast, let's just use the non-streaming API or buffer it all if we detect this error?
+                 # Or better: Resample logic requires numpy.
+                 
+                 # Let's fallback to a safe implementation that downloads the whole audio, resamples, and plays.
+                 # We need to recreate the request because the previous response stream is consumed or we are in exception.
+                 
+                 fallback_rate = 48000
+                 
+                 # Re-create request to get full content (not streaming this time for simplicity in resampling)
+                 # Note: response_format='pcm' gives raw 24kHz.
+                 response = self.client.audio.speech.create(
+                    model=self.model,
+                    voice=self.voice,
+                    input=text,
+                    response_format="pcm",
+                    speed=self.speed,
+                 )
+                 # This returns binary content directly
+                 audio_data = response.content
+                 
+                 import numpy as np
+                 wav_np = np.frombuffer(audio_data, dtype=np.int16)
+                 
+                 # Resample 24000 -> 48000
+                 sample_rate = 24000
+                 duration_s = len(wav_np) / sample_rate
+                 new_num_samples = int(duration_s * fallback_rate)
+                 
+                 x_old = np.linspace(0, duration_s, len(wav_np))
+                 x_new = np.linspace(0, duration_s, new_num_samples)
+                 
+                 wav_resampled = np.interp(x_new, x_old, wav_np)
+                 wav_int16 = wav_resampled.astype(np.int16)
+                 audio_data_resampled = wav_int16.tobytes()
+                 
+                 try:
+                    stream = audio_interface.open(
+                        format=pyaudio.paInt16,
+                        channels=1,
+                        rate=fallback_rate,
+                        output=True,
+                        output_device_index=output_device_index,
+                    )
+                 except OSError:
+                     if output_device_index is not None:
+                         stream = audio_interface.open(
+                             format=pyaudio.paInt16,
+                             channels=1,
+                             rate=fallback_rate,
+                             output=True,
+                             output_device_index=None,
+                         )
+                     else:
+                         raise
+                 
+                 stream.write(audio_data_resampled)
+             else:
+                 raise
         except Exception:
             # Re-raise other exceptions to be logged by the worker
             raise
