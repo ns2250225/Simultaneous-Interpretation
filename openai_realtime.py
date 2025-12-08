@@ -69,14 +69,16 @@ class RealtimeTranslator:
         print("🎤 开始通过麦克风录音...")
         try:
             vad_enabled = (os.environ.get("OPENAI_VAD_ENABLED", "1").strip().lower() in ("1", "true", "yes"))
-            silence_ms = int(os.environ.get("OPENAI_VAD_SILENCE_MS", "500") or "500")
+            silence_ms = int(os.environ.get("OPENAI_VAD_SILENCE_MS", "600") or "500")
             min_speech_ms = int(os.environ.get("OPENAI_VAD_MIN_SPEECH_MS", "300") or "300")
-            threshold = int(os.environ.get("OPENAI_VAD_THRESHOLD", "500") or "500")
+            threshold = int(os.environ.get("OPENAI_VAD_THRESHOLD", "300") or "500")
             commit_interval_ms = int(os.environ.get("OPENAI_COMMIT_INTERVAL_MS", "1200") or "1200")
             last_commit = time.monotonic()
             speaking = False
             seg_start = 0.0
             last_voice = time.monotonic()
+            frames_since_commit = 0
+            min_commit_ms = int(os.environ.get("OPENAI_MIN_COMMIT_MS", "200") or "120")
             while True:
                 # 1. 从麦克风读取原始 PCM 数据 (非阻塞方式读取稍微复杂，这里用简单的阻塞读取配合 asyncio.to_thread 更好，但在循环中直接读也可以)
                 # 为了避免阻塞 asyncio 事件循环，这里使用 await asyncio.sleep(0) 让出控制权，或者使用 run_in_executor
@@ -93,6 +95,7 @@ class RealtimeTranslator:
                 await websocket.send(json.dumps(event))
                 
                 now = time.monotonic()
+                frames_since_commit += CHUNK
                 if vad_enabled:
                     samples = array('h')
                     samples.frombytes(data)
@@ -103,21 +106,33 @@ class RealtimeTranslator:
                             speaking = True
                             seg_start = now
                     elif speaking and (now - last_voice) * 1000 >= silence_ms and (now - seg_start) * 1000 >= min_speech_ms:
+                        have_ms = (frames_since_commit / RATE) * 1000.0
+                        if have_ms >= min_commit_ms:
+                            try:
+                                await websocket.send(json.dumps({"type": "input_audio_buffer.commit"}))
+                                await websocket.send(json.dumps({"type": "response.create"}))
+                            except Exception:
+                                pass
+                            frames_since_commit = 0
                         try:
-                            await websocket.send(json.dumps({"type": "input_audio_buffer.commit"}))
-                            await websocket.send(json.dumps({"type": "response.create"}))
+                            pass
                         except Exception:
                             pass
                         speaking = False
                         seg_start = 0.0
                 else:
                     if (now - last_commit) * 1000 >= commit_interval_ms:
+                        have_ms = (frames_since_commit / RATE) * 1000.0
+                        if have_ms < min_commit_ms:
+                            await asyncio.sleep(0)
+                            continue
                         try:
                             await websocket.send(json.dumps({"type": "input_audio_buffer.commit"}))
                             await websocket.send(json.dumps({"type": "response.create"}))
                         except Exception:
                             pass
                         last_commit = now
+                        frames_since_commit = 0
                 await asyncio.sleep(0)
         except Exception as e:
             print(f"发送音频出错: {e}")
@@ -139,8 +154,14 @@ class RealtimeTranslator:
                         self.audio_out_stream.write(audio_data)
                 
                 elif event_type == "response.audio_transcript.delta":
-                    self._emit_transcription(event.get("delta", ""))
+                    self._emit_translation(event.get("delta", ""))
                 elif event_type == "response.audio_transcript.done":
+                    self._translation_done = True
+                    self._flush_translation()
+
+                elif event_type == "response.input_audio_transcription.delta":
+                    self._emit_transcription(event.get("delta", ""))
+                elif event_type == "response.input_audio_transcription.done":
                     self._transcript_done = True
                     self._flush_transcription()
                 
