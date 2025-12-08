@@ -12,3 +12,5 @@ miniaudio
 huggingface_hub
 requests
 websockets
+protobuf
+miniaudio
