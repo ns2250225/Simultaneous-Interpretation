@@ -43,7 +43,7 @@ RATE = 16000
 OUTPUT_RATE = 24000
 CHANNELS = 1
 FORMAT = pyaudio.paInt16
-CHUNK = 1600
+CHUNK = 1280
 # ===========================================
 
 class DoubaoRealtimeTranslator:
@@ -103,7 +103,7 @@ class DoubaoRealtimeTranslator:
                 req.source_audio.channel = 1
                 req.source_audio.binary_data = data
                 await ws.send(req.SerializeToString())
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.08)
         except Exception as e:
             print(f"发送出错: {e}")
         finally:
@@ -125,12 +125,24 @@ class DoubaoRealtimeTranslator:
                 if not isinstance(message, (bytes, bytearray)):
                     try:
                         evt = json.loads(message)
-                        t = evt.get("type")
-                        if t in ("response.audio_transcript.done", "response.input_audio_transcription.done"):
+                        ev = evt.get("event") or evt.get("type")
+                        def _is(name: str) -> bool:
+                            return isinstance(ev, str) and name in ev
+                        if _is("SourceSubtitleStart"):
+                            self._source_spk = bool(evt.get("spk_chg", False))
+                        elif _is("SourceSubtitleResponse"):
+                            self._emit_transcription(evt.get("text", ""), getattr(self, "_source_spk", False))
+                        elif _is("SourceSubtitleEnd"):
                             self._transcript_done = True
+                            self._transcript_buffer = (evt.get("text", "") or self._transcript_buffer)
                             self._flush_transcription()
-                        elif t == "response.input_audio_translation.done":
+                        elif _is("TranslationSubtitleStart"):
+                            self._translation_spk = bool(evt.get("spk_chg", False))
+                        elif _is("TranslationSubtitleResponse"):
+                            self._emit_translation(evt.get("text", ""), getattr(self, "_translation_spk", False))
+                        elif _is("TranslationSubtitleEnd"):
                             self._translation_done = True
+                            self._translation_buffer = (evt.get("text", "") or self._translation_buffer)
                             self._flush_translation()
                         else:
                             print(f"ℹ️ 事件: {json.dumps(evt, ensure_ascii=False)}")
@@ -150,17 +162,7 @@ class DoubaoRealtimeTranslator:
                     break
                 if resp.event == Type.SessionFinished:
                     break
-                if resp.text:
-                    txt = resp.text
-                    is_source = self._is_source_text(txt)
-                    if is_source:
-                        self._emit_transcription(txt, getattr(resp, "spk_chg", False))
-                    else:
-                        self._emit_translation(txt, getattr(resp, "spk_chg", False))
-                # Treat spk_chg as completion signal if provided
-                if getattr(resp, "spk_chg", False):
-                    self._transcript_done = True
-                    self._translation_done = True
+                # 忽略 Protobuf 文本内容，完全以字幕事件为准
                 if resp.data and getattr(self, "_ffmpeg", None) and self._ffmpeg.stdin:
                     try:
                         await asyncio.to_thread(self._ffmpeg.stdin.write, resp.data)
@@ -290,8 +292,7 @@ class DoubaoRealtimeTranslator:
         if new_buf != self._transcript_buffer:
             self._transcript_printed = False
             self._transcript_buffer = new_buf
-        enders = ("。", "！", "？", ".", "!", "?", "\n")
-        if (self._transcript_done or spk_chg or any(self._transcript_buffer.endswith(x) for x in enders) or len(self._transcript_buffer) >= 60) and not self._transcript_printed:
+        if self._transcript_done and not self._transcript_printed:
             line = self._transcript_buffer.strip()
             if line and line != self._last_transcript_line:
                 print(f"🟨 转录: {line}")
@@ -310,8 +311,7 @@ class DoubaoRealtimeTranslator:
         if new_buf != self._translation_buffer:
             self._translation_printed = False
             self._translation_buffer = new_buf
-        enders = ("。", "！", "？", ".", "!", "?", "\n")
-        if (self._translation_done or spk_chg or any(self._translation_buffer.endswith(x) for x in enders) or len(self._translation_buffer) >= 60) and not self._translation_printed:
+        if self._translation_done and not self._translation_printed:
             line = self._translation_buffer.strip()
             if line:
                 last = self._last_translation_line
