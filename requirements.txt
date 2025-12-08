@@ -13,3 +13,4 @@ huggingface_hub
 requests
 websockets
 protobuf
+certifi

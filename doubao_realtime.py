@@ -10,6 +10,12 @@ import subprocess
 from dotenv import load_dotenv
 import argparse
 from typing import Optional
+import ssl
+try:
+    import certifi
+    HAVE_CERTIFI = True
+except Exception:
+    HAVE_CERTIFI = False
 
 # Protobuf imports (required for AST v4). We expect a local 'python_protogen' folder
 # containing compiled protobuf modules.
@@ -34,8 +40,8 @@ WS_URL = os.environ.get(
 )
 
 # Headers（参考 ast_demo.py）
-APP_KEY = os.environ.get("VOLCENGINE_APP_KEY", "8101040360")
-ACCESS_KEY = os.environ.get("VOLCENGINE_ACCESS_KEY", "W4l-nDZHJK1M9vJIoHZJRfXmUePMT_vs")
+APP_KEY = os.environ.get("VOLCENGINE_APP_KEY", "3492256663")
+ACCESS_KEY = os.environ.get("VOLCENGINE_ACCESS_KEY", "_-CNOmlZnKYMgUSBJ-3naYWf60Ib7pYr")
 RESOURCE_ID = os.environ.get("VOLCENGINE_RESOURCE_ID", "volc.service_type.10053")
 
 # 5. 音频设置（输入 16kHz 单声道 pcm16，输出 24kHz）
@@ -219,7 +225,26 @@ class DoubaoRealtimeTranslator:
         }
 
         print(f"🔗 连接 AST v4 服务...")
-        async with websockets.connect(WS_URL, additional_headers=headers, max_size=1000000000, ping_interval=None) as ws:
+        ssl_ctx = ssl.create_default_context()
+        custom_cafile = os.environ.get("VOLCENGINE_CA_CERT") or os.environ.get("SSL_CERT_FILE")
+        if isinstance(custom_cafile, str) and os.path.isfile(custom_cafile):
+            try:
+                ssl_ctx.load_verify_locations(cafile=custom_cafile)
+            except Exception:
+                pass
+        elif HAVE_CERTIFI:
+            try:
+                ssl_ctx.load_verify_locations(cafile=certifi.where())
+            except Exception:
+                pass
+        allow_insecure = (os.environ.get("ALLOW_INSECURE_SSL", "").strip().lower() in ("1", "true", "yes"))
+        if allow_insecure:
+            try:
+                ssl_ctx.check_hostname = False
+                ssl_ctx.verify_mode = ssl.CERT_NONE
+            except Exception:
+                pass
+        async with websockets.connect(WS_URL, additional_headers=headers, max_size=1000000000, ping_interval=None, ssl=ssl_ctx) as ws:
             print("✅ 连接成功！")
             if not HAVE_PROTO:
                 raise RuntimeError("缺少 Protobuf 模块，请将 python_protogen 放到项目根目录或设置 PROTOGEN_PATH。")
