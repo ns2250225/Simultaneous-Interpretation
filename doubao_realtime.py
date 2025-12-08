@@ -62,6 +62,10 @@ class DoubaoRealtimeTranslator:
         self._last_translation_line = ""
         self._last_transcript_chunk = ""
         self._last_translation_chunk = ""
+        self._transcript_printed = False
+        self._translation_printed = False
+        self._transcript_done = False
+        self._translation_done = False
 
     def _lang_to_code(self, name: str) -> str:
         n = (name or "").strip().lower()
@@ -121,7 +125,15 @@ class DoubaoRealtimeTranslator:
                 if not isinstance(message, (bytes, bytearray)):
                     try:
                         evt = json.loads(message)
-                        print(f"ℹ️ 事件: {json.dumps(evt, ensure_ascii=False)}")
+                        t = evt.get("type")
+                        if t in ("response.audio_transcript.done", "response.input_audio_transcription.done"):
+                            self._transcript_done = True
+                            self._flush_transcription()
+                        elif t == "response.input_audio_translation.done":
+                            self._translation_done = True
+                            self._flush_translation()
+                        else:
+                            print(f"ℹ️ 事件: {json.dumps(evt, ensure_ascii=False)}")
                     except Exception:
                         pass
                     continue
@@ -145,6 +157,10 @@ class DoubaoRealtimeTranslator:
                         self._emit_transcription(txt, getattr(resp, "spk_chg", False))
                     else:
                         self._emit_translation(txt, getattr(resp, "spk_chg", False))
+                # Treat spk_chg as completion signal if provided
+                if getattr(resp, "spk_chg", False):
+                    self._transcript_done = True
+                    self._translation_done = True
                 if resp.data and getattr(self, "_ffmpeg", None) and self._ffmpeg.stdin:
                     try:
                         await asyncio.to_thread(self._ffmpeg.stdin.write, resp.data)
@@ -270,14 +286,19 @@ class DoubaoRealtimeTranslator:
         if chunk == self._last_transcript_chunk:
             return
         self._last_transcript_chunk = chunk
-        self._transcript_buffer = self._append_incremental(self._transcript_buffer, chunk)
+        new_buf = self._append_incremental(self._transcript_buffer, chunk)
+        if new_buf != self._transcript_buffer:
+            self._transcript_printed = False
+            self._transcript_buffer = new_buf
         enders = ("。", "！", "？", ".", "!", "?", "\n")
-        if spk_chg or any(self._transcript_buffer.endswith(x) for x in enders) or len(self._transcript_buffer) >= 60:
+        if (self._transcript_done or spk_chg or any(self._transcript_buffer.endswith(x) for x in enders) or len(self._transcript_buffer) >= 60) and not self._transcript_printed:
             line = self._transcript_buffer.strip()
             if line and line != self._last_transcript_line:
                 print(f"🟨 转录: {line}")
                 self._last_transcript_line = line
             self._transcript_buffer = ""
+            self._transcript_printed = True
+            self._transcript_done = False
 
     def _emit_translation(self, chunk: str, spk_chg: bool) -> None:
         if not chunk:
@@ -285,26 +306,40 @@ class DoubaoRealtimeTranslator:
         if chunk == self._last_translation_chunk:
             return
         self._last_translation_chunk = chunk
-        self._translation_buffer = self._append_incremental(self._translation_buffer, chunk)
+        new_buf = self._append_incremental(self._translation_buffer, chunk)
+        if new_buf != self._translation_buffer:
+            self._translation_printed = False
+            self._translation_buffer = new_buf
         enders = ("。", "！", "？", ".", "!", "?", "\n")
-        if spk_chg or any(self._translation_buffer.endswith(x) for x in enders) or len(self._translation_buffer) >= 60:
+        if (self._translation_done or spk_chg or any(self._translation_buffer.endswith(x) for x in enders) or len(self._translation_buffer) >= 60) and not self._translation_printed:
             line = self._translation_buffer.strip()
-            if line and line != self._last_translation_line:
-                print(f"🟦 翻译: {line}")
-                self._last_translation_line = line
+            if line:
+                last = self._last_translation_line
+                if not last or (line != last and not line.startswith(last) and not last.startswith(line)):
+                    print(f"🟦 翻译: {line}")
+                    self._last_translation_line = line
             self._translation_buffer = ""
+            self._translation_printed = True
+            self._translation_done = False
 
     def _flush_transcription(self) -> None:
-        if self._transcript_buffer.strip() and self._transcript_buffer.strip() != self._last_transcript_line:
+        if not self._transcript_printed and self._transcript_buffer.strip() and self._transcript_buffer.strip() != self._last_transcript_line:
             print(f"🟨 转录: {self._transcript_buffer.strip()}")
             self._last_transcript_line = self._transcript_buffer.strip()
         self._transcript_buffer = ""
+        self._transcript_printed = True
+        self._transcript_done = False
 
     def _flush_translation(self) -> None:
-        if self._translation_buffer.strip() and self._translation_buffer.strip() != self._last_translation_line:
-            print(f"🟦 翻译: {self._translation_buffer.strip()}")
-            self._last_translation_line = self._translation_buffer.strip()
+        line = self._translation_buffer.strip()
+        if line and not self._translation_printed:
+            last = self._last_translation_line
+            if not last or (line != last and not line.startswith(last) and not last.startswith(line)):
+                print(f"🟦 翻译: {line}")
+                self._last_translation_line = line
         self._translation_buffer = ""
+        self._translation_printed = True
+        self._translation_done = False
 
     def _append_incremental(self, buf: str, chunk: str) -> str:
         s = (chunk or "").strip()
