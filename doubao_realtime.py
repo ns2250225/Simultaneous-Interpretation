@@ -134,17 +134,25 @@ class DoubaoRealtimeTranslator:
                         elif _is("SourceSubtitleResponse"):
                             self._emit_transcription(evt.get("text", ""), getattr(self, "_source_spk", False))
                         elif _is("SourceSubtitleEnd"):
-                            self._transcript_done = True
-                            self._transcript_buffer = (evt.get("text", "") or self._transcript_buffer)
-                            self._flush_transcription()
+                            text = (evt.get("text", "") or "").strip()
+                            if text:
+                                print(f"🟨 转录: {text}")
+                                self._last_transcript_line = text
+                            self._transcript_buffer = ""
+                            self._transcript_printed = True
+                            self._transcript_done = False
                         elif _is("TranslationSubtitleStart"):
                             self._translation_spk = bool(evt.get("spk_chg", False))
                         elif _is("TranslationSubtitleResponse"):
                             self._emit_translation(evt.get("text", ""), getattr(self, "_translation_spk", False))
                         elif _is("TranslationSubtitleEnd"):
-                            self._translation_done = True
-                            self._translation_buffer = (evt.get("text", "") or self._translation_buffer)
-                            self._flush_translation()
+                            text = (evt.get("text", "") or "").strip()
+                            if text:
+                                print(f"🟦 翻译: {text}")
+                                self._last_translation_line = text
+                            self._translation_buffer = ""
+                            self._translation_printed = True
+                            self._translation_done = False
                         # 兼容 response.* 事件（完成/增量）
                         elif _is("response.audio_transcript.done") or _is("response.input_audio_transcription.done"):
                             self._transcript_done = True
