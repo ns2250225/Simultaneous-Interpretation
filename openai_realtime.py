@@ -4,17 +4,20 @@ import base64
 import json
 import websockets
 import pyaudio
+import ssl
+try:
+    import certifi
+    HAVE_CERTIFI = True
+except Exception:
+    HAVE_CERTIFI = False
 
 # --- 配置部分 ---
-# 请将你的 API Key 设置在环境变量 OPENAI_API_KEY 中，或者直接填在这里
-API_KEY = "sk-7zp54GI1xp4alaQuydzcxMLhZW47jJAcIJSJksEo7Vfp18Rd"
+API_KEY = os.environ.get("OPENAI_API_KEY", "sk-7zp54GI1xp4alaQuydzcxMLhZW47jJAcIJSJksEo7Vfp18Rd")
 
-# 模型名称，目前通常是 gpt-4o-mini-realtime-preview
-# 请根据 OpenAI 文档确认最新的模型名称
-MODEL_NAME = "gpt-4o-realtime-preview"
+MODEL_NAME = os.environ.get("OPENAI_TRANSLATION_MODEL", "gpt-4o-realtime-preview")
 
-# WebSocket URL
-URL = f"ws://jeniya.top/v1/realtime?model={MODEL_NAME}"
+BASE_URL = os.environ.get("OPENAI_BASE_URL", "ws://jeniya.top")
+URL = f"{BASE_URL}/v1/realtime?model={MODEL_NAME}"
 
 # 音频设置
 FORMAT = pyaudio.paInt16
@@ -104,14 +107,43 @@ class RealtimeTranslator:
     async def run(self):
         self.setup_audio()
         
+        if not API_KEY:
+            raise RuntimeError("缺少 OPENAI_API_KEY 环境变量")
+
         headers = {
             "Authorization": f"Bearer {API_KEY}",
             "OpenAI-Beta": "realtime=v1",
         }
 
         print(f"🔗 正在连接到 {MODEL_NAME} ...")
-        
-        async with websockets.connect(URL, additional_headers=headers) as websocket:
+        ssl_ctx = ssl.create_default_context()
+        custom_cafile = os.environ.get("OPENAI_CA_CERT") or os.environ.get("SSL_CERT_FILE")
+        if isinstance(custom_cafile, str) and os.path.isfile(custom_cafile):
+            try:
+                ssl_ctx.load_verify_locations(cafile=custom_cafile)
+            except Exception:
+                pass
+        elif HAVE_CERTIFI:
+            try:
+                ssl_ctx.load_verify_locations(cafile=certifi.where())
+            except Exception:
+                pass
+        allow_insecure = (os.environ.get("ALLOW_INSECURE_SSL", "").strip().lower() in ("1", "true", "yes"))
+        if allow_insecure:
+            try:
+                ssl_ctx.check_hostname = False
+                ssl_ctx.verify_mode = ssl.CERT_NONE
+            except Exception:
+                pass
+
+        async with websockets.connect(
+            URL,
+            additional_headers=headers,
+            ping_interval=None,
+            ping_timeout=None,
+            max_size=1000000000,
+            ssl=ssl_ctx,
+        ) as websocket:
             print("✅ 连接成功！请开始说话 (按 Ctrl+C 停止)")
 
             # 1. 发送 Session 配置：设置 VAD (自动说话检测) 和 系统指令
