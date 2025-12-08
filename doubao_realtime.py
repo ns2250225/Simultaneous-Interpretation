@@ -178,7 +178,19 @@ class DoubaoRealtimeTranslator:
                     break
                 if resp.event == Type.SessionFinished:
                     break
-                # 忽略 Protobuf 文本内容，完全以字幕事件为准
+                # Protobuf 文本回退路径：仅在完成信号触发打印
+                if getattr(resp, "text", None):
+                    txt = resp.text
+                    is_source = self._is_source_text(txt)
+                    if is_source:
+                        self._emit_transcription(txt, getattr(resp, "spk_chg", False))
+                    else:
+                        self._emit_translation(txt, getattr(resp, "spk_chg", False))
+                if getattr(resp, "spk_chg", False):
+                    self._transcript_done = True
+                    self._translation_done = True
+                    self._flush_transcription()
+                    self._flush_translation()
                 if resp.data and getattr(self, "_ffmpeg", None) and self._ffmpeg.stdin:
                     try:
                         await asyncio.to_thread(self._ffmpeg.stdin.write, resp.data)
