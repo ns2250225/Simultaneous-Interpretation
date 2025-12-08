@@ -128,6 +128,7 @@ class DoubaoRealtimeTranslator:
                         ev = evt.get("event") or evt.get("type")
                         def _is(name: str) -> bool:
                             return isinstance(ev, str) and name in ev
+                        # 字幕事件优先
                         if _is("SourceSubtitleStart"):
                             self._source_spk = bool(evt.get("spk_chg", False))
                         elif _is("SourceSubtitleResponse"):
@@ -144,6 +145,21 @@ class DoubaoRealtimeTranslator:
                             self._translation_done = True
                             self._translation_buffer = (evt.get("text", "") or self._translation_buffer)
                             self._flush_translation()
+                        # 兼容 response.* 事件（完成/增量）
+                        elif _is("response.audio_transcript.done") or _is("response.input_audio_transcription.done"):
+                            self._transcript_done = True
+                            if evt.get("text"):
+                                self._transcript_buffer = evt.get("text")
+                            self._flush_transcription()
+                        elif _is("response.input_audio_translation.done"):
+                            self._translation_done = True
+                            if evt.get("text"):
+                                self._translation_buffer = evt.get("text")
+                            self._flush_translation()
+                        elif isinstance(ev, str) and "transcript" in ev and ("delta" in ev or "response" in ev):
+                            self._emit_transcription(evt.get("text", ""), False)
+                        elif isinstance(ev, str) and "translation" in ev and ("delta" in ev or "response" in ev):
+                            self._emit_translation(evt.get("text", ""), False)
                         else:
                             print(f"ℹ️ 事件: {json.dumps(evt, ensure_ascii=False)}")
                     except Exception:

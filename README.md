@@ -32,6 +32,23 @@ python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --w
 ```
 在 GUI 中，您可以方便地选择输入/输出设备、源语言/目标语言、TTS 引擎以及推理设备。
 
+### Doubao AST v4 实时同传（字幕事件驱动，只支持中英互译）
+- 前置要求：
+  - 安装 `ffmpeg`（用于 Ogg Opus 解码）。
+  - 提供编译好的 Protobuf 模块到 `python_protogen` 目录，或设置 `PROTogen_PATH` 指向该目录。
+  - 在 `.env` 或环境变量中配置 `VOLCENGINE_APP_KEY`、`VOLCENGINE_ACCESS_KEY`、`VOLCENGINE_RESOURCE_ID`；可选 `VOLCENGINE_AST_WS_URL`。
+- 安装依赖：`pip install -r requirements.txt`
+- 启动命令：
+  - `python doubao_realtime.py --input-language Chinese --target-language English`
+  - `--input-language` 支持 `Chinese/English/...`；`--target-language` 同理。
+- 音频与事件：
+  - 输入：`16kHz/16bit/单通道`，约 `80ms` 一包发送。
+  - 输出：服务端返回 Ogg Opus，通过 `ffmpeg` 解码并播放为 `24kHz` PCM。
+  - 打印仅在字幕结束事件触发：
+    - 原文结束 `TranslationSubtitleEnd` 打印 `🟨 转录: ...`
+    - 译文结束 `TranslationSubtitleEnd` 打印 `🟦 翻译: ...`
+- 提示：若终端无任何文本输出，请确认服务端确实发送了“字幕开始/增量/结束”事件；本脚本已禁用 Protobuf 中的 `resp.text` 打印，完全以字幕事件为准。
+
 ### 使用 OpenAI Realtime API (Beta)
 本项目还提供了一个基于 OpenAI 最新 Realtime API (WebSocket) 的极速同声传译脚本。它具有超低延迟和自然的语音交互能力。
 
