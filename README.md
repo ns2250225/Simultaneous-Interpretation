@@ -32,6 +32,26 @@ python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --w
 ```
 在 GUI 中，您可以方便地选择输入/输出设备、源语言/目标语言、TTS 引擎以及推理设备。
 
+### 使用 OpenAI Realtime API (Beta)
+本项目还提供了一个基于 OpenAI 最新 Realtime API (WebSocket) 的极速同声传译脚本。它具有超低延迟和自然的语音交互能力。
+
+**前置要求：**
+确保 `.env` 文件中配置了支持 Realtime API 的 `OPENAI_API_KEY` 和 `OPENAI_BASE_URL`。
+
+**启动命令：**
+```bash
+# 默认翻译为英文
+python openai_realtime.py
+
+# 指定目标语言（例如：日语）
+python openai_realtime.py --target-language Japanese
+
+# 指定目标语言（例如：中文）
+python openai_realtime.py --target-language Chinese
+```
+
+**注意：** Realtime API 目前处于 Beta 阶段，价格较高且可能仅部分代理/官方支持。
+
 ### 支持的whisper模型（一般选large-v3最好, 但是最慢最占现存）
 ```
 large-v3
