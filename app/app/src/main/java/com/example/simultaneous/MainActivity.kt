@@ -13,9 +13,12 @@ import androidx.core.content.ContextCompat
 import com.example.simultaneous.ui.MainViewModel
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
+import android.widget.Switch
+
 class MainActivity : AppCompatActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+    private lateinit var swConnection: Switch
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
@@ -31,6 +34,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val tvStatus = findViewById<TextView>(R.id.tvStatus)
+        swConnection = findViewById<Switch>(R.id.swConnection)
         val tvTranscript = findViewById<TextView>(R.id.tvTranscript)
         val tvTranslation = findViewById<TextView>(R.id.tvTranslation)
         val fabAction = findViewById<FloatingActionButton>(R.id.fabAction)
@@ -39,12 +43,30 @@ class MainActivity : AppCompatActivity() {
         // Observe ViewModel
         viewModel.status.observe(this) { status ->
             tvStatus.text = status
-            if (status == "Disconnected" || status.startsWith("Error")) {
+            if (status == "Disconnected" || status.startsWith("Error") || status.startsWith("Please")) {
                 fabAction.setImageResource(android.R.drawable.ic_btn_speak_now)
+                fabAction.isEnabled = true // Allow pressing even in error state
                 fabSettings.isEnabled = true
+                if (swConnection.isChecked && (status == "Disconnected" || status.startsWith("Error"))) {
+                     // Do NOT turn off switch automatically unless manually disconnected
+                     // swConnection.isChecked = false 
+                }
             } else {
-                fabAction.setImageResource(android.R.drawable.ic_media_pause)
+                fabAction.isEnabled = true
+                if (status == "Speaking") {
+                    fabAction.setImageResource(android.R.drawable.ic_btn_speak_now) // Or mic icon
+                } else {
+                    fabAction.setImageResource(android.R.drawable.ic_btn_speak_now)
+                }
                 fabSettings.isEnabled = false // Disable settings while running
+            }
+        }
+
+        swConnection.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                viewModel.connectSession()
+            } else {
+                viewModel.stopSession()
             }
         }
 

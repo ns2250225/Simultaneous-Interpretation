@@ -11,13 +11,24 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:background="#EEE"
-        android:padding="8dp"
+        android:padding="12dp"
         android:text="@string/status_disconnected"
-        android:textAlignment="center"
+        android:gravity="center_vertical"
         android:textColor="#333"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/swConnection"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <Switch
+        android:id="@+id/swConnection"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:text="Online"
+        android:paddingEnd="16dp"
+        android:background="#EEE"
+        app:layout_constraintBottom_toBottomOf="@+id/tvStatus"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/tvStatus" />
 
     <ScrollView
         android:id="@+id/scrollTranscript"

@@ -33,6 +33,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
     val translation: LiveData<String> = _translation
 
     private var isConnected = false
+    private var shouldBeConnected = false // User intent to stay connected
     private var processingJob: kotlinx.coroutines.Job? = null
 
     // Buffers for text
@@ -40,22 +41,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
     private var translationBuffer = StringBuilder()
 
     fun startRecording() {
+        // If switch is OFF, don't record
+        if (!shouldBeConnected) {
+            _status.value = "Please turn on switch"
+            return
+        }
+        
+        // If switch is ON but disconnected (Error/Reconnecting), allow recording
+        // logic to proceed (UI responsiveness).
+        // Optionally trigger immediate reconnect if idle
         if (!isConnected) {
             connectSession()
         }
+
         audioEngine.startRecording(viewModelScope)
         _status.value = "Speaking"
     }
 
     fun stopRecording() {
+        if (!shouldBeConnected) return
+        
         audioEngine.stopRecording()
-        // Force commit
+        // Force commit (safe even if null)
         client.commit()
-        // We stay connected
-        _status.value = "Listening"
+        
+        // Update status based on connection
+        if (isConnected) {
+            _status.value = "Listening"
+        } else {
+            _status.value = "Reconnecting..."
+        }
     }
 
-    private fun connectSession() {
+    fun connectSession() {
+        shouldBeConnected = true
         // Load Settings
         val prefs = getApplication<Application>().getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
         val apiKey = prefs.getString("api_key", "sk-7zp54GI1xp4alaQuydzcxMLhZW47jJAcIJSJksEo7Vfp18Rd") ?: ""
@@ -93,6 +112,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
     }
 
     fun stopSession() {
+        shouldBeConnected = false
         audioEngine.stopRecording()
         client.disconnect()
         _status.value = "Disconnected"
@@ -113,7 +133,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
 
     override fun onDisconnected() {
         isConnected = false
-        _status.postValue("Disconnected")
+        if (shouldBeConnected) {
+            // Auto-reconnect
+            _status.postValue("Reconnecting...")
+            viewModelScope.launch(Dispatchers.Main) {
+                kotlinx.coroutines.delay(2000) // Wait 2s before retry
+                if (shouldBeConnected) {
+                    connectSession()
+                }
+            }
+        } else {
+            _status.postValue("Disconnected")
+        }
         audioEngine.stopRecording()
     }
 
