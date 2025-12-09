@@ -1,12 +1,16 @@
 # 基于openai的实时同声传译应用
 
 ## GUI界面预览
-![](./demo.png)
-![](./demo1.png)
+<p align="center">
+  <img src="./demo.png" width="400" />
+  <img src="./demo1.png" width="400" />
+</p>
 
 ## Android 应用预览
-![](./demo2.jpg)
-![](./demo3.jpg)
+<p align="center">
+  <img src="./demo2.jpg" width="300" />
+  <img src="./demo3.jpg" width="300" />
+</p>
 
 ## 前置要求
 - Python 3.10 或更高版本。
