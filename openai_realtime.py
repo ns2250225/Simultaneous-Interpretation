@@ -44,6 +44,8 @@ class RealtimeTranslator:
         self._translation_printed = False
         self._transcript_done = False
         self._translation_done = False
+        self._mute_input_until = 0.0
+        self._mute_ms = int(os.environ.get("OPENAI_MUTE_DURING_PLAY_MS", "1200") or "800")
 
     def setup_audio(self):
         """初始化麦克风输入和扬声器输出流"""
@@ -69,20 +71,31 @@ class RealtimeTranslator:
         print("🎤 开始通过麦克风录音...")
         try:
             vad_enabled = (os.environ.get("OPENAI_VAD_ENABLED", "1").strip().lower() in ("1", "true", "yes"))
+            client_commit_enabled = (os.environ.get("OPENAI_CLIENT_COMMIT", "0").strip().lower() in ("1", "true", "yes"))
             silence_ms = int(os.environ.get("OPENAI_VAD_SILENCE_MS", "600") or "500")
             min_speech_ms = int(os.environ.get("OPENAI_VAD_MIN_SPEECH_MS", "300") or "300")
-            threshold = int(os.environ.get("OPENAI_VAD_THRESHOLD", "300") or "500")
+            threshold = int(os.environ.get("OPENAI_VAD_THRESHOLD", "200") or "500")
             commit_interval_ms = int(os.environ.get("OPENAI_COMMIT_INTERVAL_MS", "1200") or "1200")
             last_commit = time.monotonic()
             speaking = False
             seg_start = 0.0
             last_voice = time.monotonic()
             frames_since_commit = 0
-            min_commit_ms = int(os.environ.get("OPENAI_MIN_COMMIT_MS", "200") or "120")
+            # 服务端要求至少 ~100ms 音频，这里强制不低于 120ms
+            min_commit_ms = max(120, int(os.environ.get("OPENAI_MIN_COMMIT_MS", "200") or "120"))
             while True:
                 # 1. 从麦克风读取原始 PCM 数据 (非阻塞方式读取稍微复杂，这里用简单的阻塞读取配合 asyncio.to_thread 更好，但在循环中直接读也可以)
                 # 为了避免阻塞 asyncio 事件循环，这里使用 await asyncio.sleep(0) 让出控制权，或者使用 run_in_executor
                 data = await asyncio.to_thread(self.audio_in_stream.read, CHUNK, exception_on_overflow=False)
+                if not data or len(data) == 0:
+                    await asyncio.sleep(0)
+                    continue
+                now = time.monotonic()
+                if now < self._mute_input_until:
+                    frames_since_commit = 0
+                    speaking = False
+                    await asyncio.sleep(0)
+                    continue
                 
                 # 2. Base64 编码
                 base64_audio = base64.b64encode(data).decode("utf-8")
@@ -94,7 +107,6 @@ class RealtimeTranslator:
                 }
                 await websocket.send(json.dumps(event))
                 
-                now = time.monotonic()
                 frames_since_commit += CHUNK
                 if vad_enabled:
                     samples = array('h')
@@ -107,7 +119,7 @@ class RealtimeTranslator:
                             seg_start = now
                     elif speaking and (now - last_voice) * 1000 >= silence_ms and (now - seg_start) * 1000 >= min_speech_ms:
                         have_ms = (frames_since_commit / RATE) * 1000.0
-                        if have_ms >= min_commit_ms:
+                        if client_commit_enabled and frames_since_commit > 0 and have_ms >= min_commit_ms:
                             try:
                                 await websocket.send(json.dumps({"type": "input_audio_buffer.commit"}))
                                 await websocket.send(json.dumps({"type": "response.create"}))
@@ -123,7 +135,8 @@ class RealtimeTranslator:
                 else:
                     if (now - last_commit) * 1000 >= commit_interval_ms:
                         have_ms = (frames_since_commit / RATE) * 1000.0
-                        if have_ms < min_commit_ms:
+                        if not client_commit_enabled or frames_since_commit <= 0 or have_ms < min_commit_ms:
+                            last_commit = now
                             await asyncio.sleep(0)
                             continue
                         try:
@@ -152,6 +165,7 @@ class RealtimeTranslator:
                         # 解码 base64 并写入扬声器流
                         audio_data = base64.b64decode(audio_content)
                         self.audio_out_stream.write(audio_data)
+                        self._mute_input_until = time.monotonic() + (self._mute_ms / 1000.0)
                 
                 elif event_type == "response.audio_transcript.delta":
                     self._emit_translation(event.get("delta", ""))
