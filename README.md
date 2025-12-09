@@ -1,8 +1,12 @@
 # 基于openai的实时同声传译应用
 
-## 界面预览
+## GUI界面预览
 ![](./demo.png)
 ![](./demo1.png)
+
+## Android 应用预览
+![](./demo2.jpg)
+![](./demo3.jpg)
 
 ## 前置要求
 - Python 3.10 或更高版本。
@@ -31,6 +35,13 @@ OPENAI_TTS_MODEL=tts-1
 python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --whisper-model tiny --whisper-device auto
 ```
 在 GUI 中，您可以方便地选择输入/输出设备、源语言/目标语言、TTS 引擎以及推理设备。
+
+### Android app使用方法
+- 安装应用，apk在：app/app/release/app-release.apk
+- 打开应用后，先点击设置，填好相关信息，调整好静音时长
+- 点击右上角的连接服务器开关
+- 按住录音按钮的时候可以说话，松开的时候只播放翻译不会录音
+
 
 ### Doubao AST v4 实时同传（字幕事件驱动，只支持中英互译）
 - 前置要求：
