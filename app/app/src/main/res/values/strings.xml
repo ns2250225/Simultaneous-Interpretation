@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Simultaneous Interpretation</string>
+    <string name="action_settings">Settings</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_connecting">Connecting...</string>
+    <string name="status_listening">Listening</string>
+    <string name="status_speaking">Speaking</string>
+    <string name="permission_rationale">Microphone permission is required for interpretation.</string>
+</resources>
