@@ -8,7 +8,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="API Configuration"
+        android:text="API 配置"
         android:textStyle="bold"
         android:textSize="18sp"
         android:layout_marginBottom="8dp"/>
@@ -16,7 +16,7 @@
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="API Key">
+        android:hint="API 密钥">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etApiKey"
             android:layout_width="match_parent"
@@ -28,7 +28,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint="Base URL">
+        android:hint="基础 URL">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etBaseUrl"
             android:layout_width="match_parent"
@@ -40,7 +40,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint="Model Name">
+        android:hint="模型名称">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etModelName"
             android:layout_width="match_parent"
@@ -51,7 +51,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint="Target Language">
+        android:hint="目标语言">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etTargetLanguage"
             android:layout_width="match_parent"
@@ -61,7 +61,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="VAD Settings"
+        android:text="VAD 设置"
         android:textStyle="bold"
         android:textSize="18sp"
         android:layout_marginTop="24dp"
@@ -70,7 +70,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Threshold (Energy)"/>
+        android:text="能量阈值"/>
     <SeekBar
         android:id="@+id/seekBarThreshold"
         android:layout_width="match_parent"
@@ -87,7 +87,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Silence Duration (ms)"
+        android:text="静音时长 (毫秒)"
         android:layout_marginTop="8dp"/>
     <SeekBar
         android:id="@+id/seekBarSilence"
@@ -106,7 +106,7 @@
         android:id="@+id/btnSave"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Save Settings"
+        android:text="保存设置"
         android:layout_marginTop="24dp"/>
 
 </LinearLayout>

@@ -23,7 +23,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
     private val client = RealtimeClient(this)
 
     // State
-    private val _status = MutableLiveData("Disconnected")
+    private val _status = MutableLiveData("已断开")
     val status: LiveData<String> = _status
 
     private val _transcript = MutableLiveData("")
@@ -43,7 +43,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
     fun startRecording() {
         // If switch is OFF, don't record
         if (!shouldBeConnected) {
-            _status.value = "Please turn on switch"
+            _status.value = "请先开启在线开关"
             return
         }
         
@@ -55,7 +55,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
         }
 
         audioEngine.startRecording(viewModelScope)
-        _status.value = "Speaking"
+        _status.value = "正在说话..."
     }
 
     fun stopRecording() {
@@ -67,9 +67,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
         
         // Update status based on connection
         if (isConnected) {
-            _status.value = "Listening"
+            _status.value = "正在听..."
         } else {
-            _status.value = "Reconnecting..."
+            _status.value = "正在重连..."
         }
     }
 
@@ -93,7 +93,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
                 "Your task is to translate whatever the user says into $targetLanguage immediately. " +
                 "Do not answer the user's question, just translate the content."
 
-        _status.value = "Connecting..."
+        _status.value = "连接中..."
         client.connect(apiKey, baseUrl, modelName, instructions)
         audioEngine.initPlayer()
 
@@ -115,7 +115,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
         shouldBeConnected = false
         audioEngine.stopRecording()
         client.disconnect()
-        _status.value = "Disconnected"
+        _status.value = "已断开"
     }
 
     override fun onCleared() {
@@ -128,14 +128,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
 
     override fun onConnected() {
         isConnected = true
-        _status.postValue("Listening")
+        _status.postValue("正在听...")
     }
 
     override fun onDisconnected() {
         isConnected = false
         if (shouldBeConnected) {
             // Auto-reconnect
-            _status.postValue("Reconnecting...")
+            _status.postValue("正在重连...")
             viewModelScope.launch(Dispatchers.Main) {
                 kotlinx.coroutines.delay(2000) // Wait 2s before retry
                 if (shouldBeConnected) {
@@ -143,14 +143,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application), R
                 }
             }
         } else {
-            _status.postValue("Disconnected")
+            _status.postValue("已断开")
         }
         audioEngine.stopRecording()
     }
 
     override fun onError(error: String) {
         Log.e("MainViewModel", "Error: $error")
-        _status.postValue("Error: $error")
+        _status.postValue("错误: $error")
     }
 
     override fun onAudioData(data: ByteArray) {

@@ -14,11 +14,13 @@ import com.example.simultaneous.ui.MainViewModel
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 import android.widget.Switch
+import android.widget.ScrollView
 
 class MainActivity : AppCompatActivity() {
 
     private val viewModel: MainViewModel by viewModels()
     private lateinit var swConnection: Switch
+    private lateinit var scrollLog: ScrollView
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
@@ -35,6 +37,7 @@ class MainActivity : AppCompatActivity() {
 
         val tvStatus = findViewById<TextView>(R.id.tvStatus)
         swConnection = findViewById<Switch>(R.id.swConnection)
+        scrollLog = findViewById<ScrollView>(R.id.scrollLog)
         val tvTranscript = findViewById<TextView>(R.id.tvTranscript)
         val tvTranslation = findViewById<TextView>(R.id.tvTranslation)
         val fabAction = findViewById<FloatingActionButton>(R.id.fabAction)
@@ -43,17 +46,17 @@ class MainActivity : AppCompatActivity() {
         // Observe ViewModel
         viewModel.status.observe(this) { status ->
             tvStatus.text = status
-            if (status == "Disconnected" || status.startsWith("Error") || status.startsWith("Please")) {
+            if (status == "已断开" || status.startsWith("错误") || status.startsWith("请先")) {
                 fabAction.setImageResource(android.R.drawable.ic_btn_speak_now)
                 fabAction.isEnabled = true // Allow pressing even in error state
                 fabSettings.isEnabled = true
-                if (swConnection.isChecked && (status == "Disconnected" || status.startsWith("Error"))) {
+                if (swConnection.isChecked && (status == "已断开" || status.startsWith("错误"))) {
                      // Do NOT turn off switch automatically unless manually disconnected
                      // swConnection.isChecked = false 
                 }
             } else {
                 fabAction.isEnabled = true
-                if (status == "Speaking") {
+                if (status == "正在说话...") {
                     fabAction.setImageResource(android.R.drawable.ic_btn_speak_now) // Or mic icon
                 } else {
                     fabAction.setImageResource(android.R.drawable.ic_btn_speak_now)
@@ -72,10 +75,12 @@ class MainActivity : AppCompatActivity() {
 
         viewModel.transcript.observe(this) { text ->
             tvTranscript.text = text
+            scrollLog.post { scrollLog.fullScroll(android.widget.ScrollView.FOCUS_DOWN) }
         }
 
         viewModel.translation.observe(this) { text ->
             tvTranslation.text = text
+            scrollLog.post { scrollLog.fullScroll(android.widget.ScrollView.FOCUS_DOWN) }
         }
 
         // Click Listener replaced by Touch Listener
