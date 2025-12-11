@@ -44,6 +44,11 @@ def start_voice_interpreter():
     
     # === 播放函数 ===
     def play_translation(text, language_code):
+        """
+        根据目标语言，动态选择播报的声音（SSML格式）
+        """
+        # 定义不同语言对应的神经网络语音角色 (Neural Voice)
+        # 更多声音代码可在 Azure 文档查询: https://aka.ms/speech/voices
         voice_map = {
             "en": "en-US-AvaNeural",
             "zh-Hans": "zh-CN-XiaoxiaoNeural"
