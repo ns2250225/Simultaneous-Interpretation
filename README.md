@@ -59,10 +59,45 @@ python -m src.siminterp --gui --translate --tts --transcriber faster-whisper --w
 - 音频与事件：
   - 输入：`16kHz/16bit/单通道`，约 `80ms` 一包发送。
   - 输出：服务端返回 Ogg Opus，通过 `ffmpeg` 解码并播放为 `24kHz` PCM。
-  - 打印仅在字幕结束事件触发：
+ - 打印仅在字幕结束事件触发：
     - 原文结束 `TranslationSubtitleEnd` 打印 `🟨 转录: ...`
     - 译文结束 `TranslationSubtitleEnd` 打印 `🟦 翻译: ...`
 - 提示：若终端无任何文本输出，请确认服务端确实发送了“字幕开始/增量/结束”事件；本脚本已禁用 Protobuf 中的 `resp.text` 打印，完全以字幕事件为准。
+
+### 使用 Azure 认知服务实时同传（中英互译）
+本项目提供 `azure_realtime.py`，基于 Azure Cognitive Services Speech 的低改造实时同传脚本，支持自动语言检测、连续识别和语音合成播放。
+
+**主要特性：**
+- 自动语言检测，优先识别英文（`en-US`），并支持中文（`zh-CN`）。
+- 连续识别模式（每句话重新判断语言，降低误判）。
+- 英→中使用目标语言 `zh-Hans`，中→英使用目标语言 `en`。
+- 即时语音合成播放，默认英文 `en-US-AvaNeural`、中文 `zh-CN-XiaoxiaoNeural`。
+- 误判保护：当检测到文本为纯英文但服务误判为中文时仅提示，不播放，避免混淆。
+
+**前置要求：**
+- Azure 订阅密钥与服务区域（建议通过环境变量提供）。
+- 依赖 `azure-cognitiveservices-speech`（已在 `requirements.txt`）。
+- 允许系统访问默认麦克风设备。
+
+**使用方法：**
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 运行 Azure 实时同传脚本
+python azure_realtime.py
+```
+
+**配置与自定义：**
+- 将密钥和区域放入环境变量（示例）：
+  - `AZURE_SPEECH_KEY=<你的密钥>`
+  - `AZURE_SERVICE_REGION=<你的区域>`
+- 若希望优先识别中文，可在脚本中将自动检测顺序改为 `["zh-CN", "en-US"]`。
+- 修改播放的 TTS 语音，可在脚本的语音映射中调整。
+
+**常见问题：**
+- 说话过短可能导致语言误判，建议使用更完整的句子或稍作停顿。
+- 若无声音或设备占用异常，请检查默认麦克风是否可用、权限是否已授予。
 
 ### 使用 OpenAI Realtime 实时同传API (Beta版，支持多国语言，但很贵)
 本项目还提供了一个基于 OpenAI 最新 Realtime API (WebSocket) 的极速同声传译脚本。它具有超低延迟和自然的语音交互能力。
